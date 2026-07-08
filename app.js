@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "https://esm.sh/react@18.3.1
 import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
 
 const h = React.createElement;
-const STORAGE_KEY = "unifilar-react-v1";
+const STORAGE_KEY = "unifilar-react-v2-example";
 
 const BLANK_LOAD = {
   phase: "",
@@ -16,83 +16,100 @@ const BLANK_LOAD = {
 
 const DEFAULT_DATA = {
   project: {
-    title: "DIAGRAMA UNIFILAR",
-    projectName: "Levantamiento en campo",
-    location: "",
+    title: "DIAGRAMA UNIFILAR - EJEMPLO COMPLETO",
+    projectName: "Oficina y almacen - ejemplo didactico",
+    location: "Av. Ejemplo 123, Ciudad de Mexico",
     date: new Date().toISOString().slice(0, 10),
-    preparedBy: "",
-    reviewedBy: "",
-    drawingNumber: "DU-001",
-    revision: "0",
-    notes: "Informacion sujeta a verificacion en campo.",
-    standards: "NOM-001-SEDE aplicable; NOM-029-STPS para mantenimiento electrico; NOM-002-STPS para prevencion/proteccion contra incendios cuando aplique."
+    preparedBy: "Area tecnica",
+    reviewedBy: "Responsable electrico por designar",
+    drawingNumber: "DU-EJ-001",
+    revision: "A",
+    notes: "Ejemplo didactico para captura. Todos los datos deben verificarse en campo antes de usarse como documento tecnico.",
+    standards: "Base de captura: NOM-001-SEDE aplicable a instalaciones electricas; NOM-029-STPS para mantenimiento electrico; NOM-002-STPS para prevencion y proteccion contra incendios cuando aplique. No sustituye memoria de calculo, dictamen, UVIE ni responsiva profesional."
   },
   service: {
     label: "Acometida CFE",
     utility: "CFE",
-    serviceType: "Por definir",
-    meter: "Por definir",
-    mainBreaker: "2x70",
+    serviceType: "Baja tension, 1F+N+T, servicio comercial",
+    meter: "Medidor autocontenido por confirmar",
+    mainBreaker: "2x70 A",
     mainBreakerPoles: "2",
     mainBreakerAmps: "70",
-    mainBreakerAicCurve: "Por definir",
-    feeder: "2 cal.8, 1 cal. 8 N, 1 cal. 12 T",
-    feederLength: "",
-    conductorTypeInsulation: "",
-    conduitTypeDiameter: "",
-    panelBusServiceData: ""
+    mainBreakerAicCurve: "10 kAIC, termomagnetico, curva/tipo por confirmar",
+    feeder: "2 cal.8 Cu THW-LS, 1 cal.8 N, 1 cal.12 T",
+    feederLength: "18 m",
+    conductorTypeInsulation: "Cobre THW-LS 75 C, calibre a confirmar por memoria",
+    conduitTypeDiameter: "Tuberia EMT 1 pulg, diametro a confirmar",
+    panelBusServiceData: "Acometida a tablero TG; barras 100 A; gabinete NEMA 1; montaje sobre muro; datos sujetos a levantamiento."
   },
   system: {
-    voltage: "",
-    phases: "",
-    wires: "",
+    voltage: "127/220 V",
+    phases: "1 fase",
+    wires: "3 hilos (L1, N, T)",
     frequency: "60 Hz",
-    groundingSystem: "",
-    availableShortCircuit: "",
-    demandFactor: "",
-    powerFactor: "",
-    maxDemand: ""
+    groundingSystem: "Sistema puesto a tierra con barra de tierra en TG",
+    availableShortCircuit: "10 kA presumido; calcular y confirmar en campo",
+    demandFactor: "Por calcular en memoria",
+    powerFactor: "0.90 ejemplo",
+    maxDemand: "9.80 kVA ejemplo; no validado"
   },
   panel: {
     id: "TG",
     name: "Tablero General",
-    location: "",
-    voltage: "",
-    phases: "",
-    busAmps: "",
-    busMaterial: "",
-    bars: "",
-    enclosure: "",
-    mounting: "",
-    nema: "",
-    interruptingRating: "",
-    mainDevice: "",
-    neutralBar: "Por definir",
-    groundBar: "Por definir"
+    location: "Cuarto electrico / acceso de servicio",
+    voltage: "127/220 V",
+    phases: "1F+N+T",
+    busAmps: "100 A",
+    busMaterial: "Cobre o aluminio por confirmar",
+    bars: "2 fases, neutro y tierra",
+    enclosure: "Gabinete metalico NEMA 1",
+    mounting: "Sobrepuesto en muro",
+    nema: "NEMA 1 interior",
+    interruptingRating: "10 kAIC por confirmar",
+    mainDevice: "Interruptor principal 2x70 A",
+    neutralBar: "Barra de neutro aislada",
+    groundBar: "Barra de tierra bonded al gabinete segun diseño"
   },
   grounding: {
-    electrode: "",
-    groundingConductor: "",
-    bonding: "",
-    resistance: "",
-    notes: ""
+    electrode: "Electrodo tipo varilla copperweld 5/8 pulg x 2.4 m, por confirmar",
+    groundingConductor: "Conductor de puesta a tierra cal.12 Cu en derivados, principal por confirmar",
+    bonding: "Union equipotencial de gabinete, canalizaciones metalicas y barra de tierra",
+    resistance: "25 ohm max como referencia; medir en campo",
+    notes: "Verificar continuidad, aprietes, identificacion verde/desnuda y conexion a barra de tierra."
   },
   stps: {
-    workRisk: "Por definir",
-    loto: "Por definir",
-    ppe: "Por definir",
-    arcFlashLabel: "Por definir",
-    fireRiskArea: "Por definir",
-    emergencyNotes: ""
+    workRisk: "Riesgo electrico bajo/medio por confirmar durante mantenimiento",
+    loto: "Aplicar bloqueo y etiquetado antes de intervenir tablero o circuitos",
+    ppe: "Guantes dielectricos, lentes, calzado dielectrico y herramienta aislada segun analisis de riesgo",
+    arcFlashLabel: "Rotulado de tablero pendiente de estudio de arco electrico",
+    fireRiskArea: "Area ordinaria sin atmosfera peligrosa aparente; confirmar almacenamiento y extintores",
+    emergencyNotes: "Mantener libre acceso a tablero, senalizacion visible y directorio de emergencia."
   },
   circuits: [
-    circuit("Contacto Administracion", "1x30", "2 cal.10, 1 cal. 10 N, 1 cal. 12 T"),
-    circuit("Contacto Almacen", "1x30", "2 cal.10, 1 cal. 10 N, 1 cal. 12 T"),
-    circuit("Contactos exteriores", "1x30", "2 cal.10, 1 cal. 10 N, 1 cal. 12 T"),
-    circuit("Iluminacion", "1x15", "2 cal.12, 1 cal. 12 N, 1 cal. 14 T"),
-    circuit("Servidor", "1x10", "2 cal.12, 1 cal. 12 N, 1 cal. 14 T"),
-    circuit("Disponible", "1x10", "2 cal.12, 1 cal. 12 N, 1 cal. 14 T"),
-    circuit("Aire/A.", "2x50", "2 cal.8, 1 cal. 8 N, 1 cal. 12 T")
+    filledCircuit("Contacto Administracion", "1x20 A", "2 cal.12 Cu THW-LS, 1 cal.12 N, 1 cal.12 T", {
+      origin: "TG", destination: "Oficina administracion", poles: "1", amps: "20", breakerType: "Termomagnetico enchufable", breakerAicCurve: "10 kAIC por confirmar", phaseConductor: "1 cal.12 Cu", neutralConductor: "1 cal.12 Cu", groundConductor: "1 cal.12 Cu", material: "Cobre", insulation: "THW-LS 75 C", conductorTypeInsulation: "Cu THW-LS", conduitTypeDiameter: "EMT 3/4 pulg", conduitMaterial: "Acero galvanizado", conduitFill: "Por verificar", length: "22 m", load: "Contactos generales administracion", voltageDrop: "Por calcular", status: "Ejemplo; verificar campo", loadSchedule: { phase: "L1-N", loadType: "Contactos", installedVa: "1800", demandedVa: "1260", currentA: "9.92", powerFactor: "0.90", notes: "Carga estimada de ejemplo" }
+    }),
+    filledCircuit("Contacto Almacen", "1x20 A", "2 cal.12 Cu THW-LS, 1 cal.12 N, 1 cal.12 T", {
+      origin: "TG", destination: "Almacen", poles: "1", amps: "20", breakerType: "Termomagnetico enchufable", breakerAicCurve: "10 kAIC por confirmar", phaseConductor: "1 cal.12 Cu", neutralConductor: "1 cal.12 Cu", groundConductor: "1 cal.12 Cu", material: "Cobre", insulation: "THW-LS 75 C", conductorTypeInsulation: "Cu THW-LS", conduitTypeDiameter: "EMT 3/4 pulg", conduitMaterial: "Acero galvanizado", conduitFill: "Por verificar", length: "28 m", load: "Contactos almacen", voltageDrop: "Por calcular", status: "Ejemplo; verificar campo", loadSchedule: { phase: "L1-N", loadType: "Contactos", installedVa: "1500", demandedVa: "1050", currentA: "8.27", powerFactor: "0.90", notes: "Carga estimada de ejemplo" }
+    }),
+    filledCircuit("Contactos exteriores", "1x20 A GFCI", "2 cal.12 Cu THW-LS, 1 cal.12 N, 1 cal.12 T", {
+      origin: "TG", destination: "Fachada y patio", poles: "1", amps: "20", breakerType: "Termomagnetico/GFCI o contacto GFCI por definir", breakerAicCurve: "10 kAIC por confirmar", phaseConductor: "1 cal.12 Cu", neutralConductor: "1 cal.12 Cu", groundConductor: "1 cal.12 Cu", material: "Cobre", insulation: "THW-LS 75 C", conductorTypeInsulation: "Cu THW-LS", conduitTypeDiameter: "PVC pesado/EMT 3/4 pulg", conduitMaterial: "Segun intemperie", conduitFill: "Por verificar", length: "35 m", load: "Contactos exteriores con proteccion por falla a tierra", voltageDrop: "Por calcular", status: "Ejemplo; verificar IP/NEMA", loadSchedule: { phase: "L1-N", loadType: "Contactos exteriores", installedVa: "1200", demandedVa: "840", currentA: "6.61", powerFactor: "0.90", notes: "Requiere proteccion y cubierta intemperie" }
+    }),
+    filledCircuit("Iluminacion oficinas", "1x15 A", "2 cal.14 Cu THW-LS, 1 cal.14 N, 1 cal.14 T", {
+      origin: "TG", destination: "Area oficinas", poles: "1", amps: "15", breakerType: "Termomagnetico enchufable", breakerAicCurve: "10 kAIC por confirmar", phaseConductor: "1 cal.14 Cu", neutralConductor: "1 cal.14 Cu", groundConductor: "1 cal.14 Cu", material: "Cobre", insulation: "THW-LS 75 C", conductorTypeInsulation: "Cu THW-LS", conduitTypeDiameter: "EMT 1/2 pulg", conduitMaterial: "Acero galvanizado", conduitFill: "Por verificar", length: "31 m", load: "Luminarias LED oficinas", voltageDrop: "Por calcular", status: "Ejemplo; verificar niveles de iluminacion", loadSchedule: { phase: "L1-N", loadType: "Iluminacion LED", installedVa: "900", demandedVa: "900", currentA: "7.09", powerFactor: "0.95", notes: "Carga continua a revisar" }
+    }),
+    filledCircuit("Servidor / TI", "1x20 A", "2 cal.12 Cu THW-LS, 1 cal.12 N, 1 cal.12 T", {
+      origin: "TG", destination: "Rack TI", poles: "1", amps: "20", breakerType: "Termomagnetico dedicado", breakerAicCurve: "10 kAIC por confirmar", phaseConductor: "1 cal.12 Cu", neutralConductor: "1 cal.12 Cu", groundConductor: "1 cal.12 Cu aislado por confirmar", material: "Cobre", insulation: "THW-LS 75 C", conductorTypeInsulation: "Cu THW-LS", conduitTypeDiameter: "EMT 3/4 pulg", conduitMaterial: "Acero galvanizado", conduitFill: "Por verificar", length: "16 m", load: "Servidor, switch y UPS", voltageDrop: "Por calcular", status: "Ejemplo; circuito dedicado", loadSchedule: { phase: "L1-N", loadType: "Equipo TI", installedVa: "1500", demandedVa: "1500", currentA: "11.81", powerFactor: "0.95", notes: "Considerar UPS y autonomia" }
+    }),
+    filledCircuit("Iluminacion almacen", "1x15 A", "2 cal.14 Cu THW-LS, 1 cal.14 N, 1 cal.14 T", {
+      origin: "TG", destination: "Almacen", poles: "1", amps: "15", breakerType: "Termomagnetico enchufable", breakerAicCurve: "10 kAIC por confirmar", phaseConductor: "1 cal.14 Cu", neutralConductor: "1 cal.14 Cu", groundConductor: "1 cal.14 Cu", material: "Cobre", insulation: "THW-LS 75 C", conductorTypeInsulation: "Cu THW-LS", conduitTypeDiameter: "EMT 1/2 pulg", conduitMaterial: "Acero galvanizado", conduitFill: "Por verificar", length: "26 m", load: "Luminarias LED almacen", voltageDrop: "Por calcular", status: "Ejemplo; verificar altura y controles", loadSchedule: { phase: "L1-N", loadType: "Iluminacion LED", installedVa: "750", demandedVa: "750", currentA: "5.91", powerFactor: "0.95", notes: "Carga continua a revisar" }
+    }),
+    filledCircuit("Aire acondicionado", "2x50 A", "2 cal.8 Cu THW-LS, 1 cal.12 T", {
+      origin: "TG", destination: "Condensadora minisplit", poles: "2", amps: "50", breakerType: "Termomagnetico bipolar", breakerAicCurve: "10 kAIC por confirmar", phaseConductor: "2 cal.8 Cu", neutralConductor: "No aplica si equipo 220 V", groundConductor: "1 cal.12 Cu", material: "Cobre", insulation: "THW-LS 75 C", conductorTypeInsulation: "Cu THW-LS", conduitTypeDiameter: "EMT 1 pulg", conduitMaterial: "Acero galvanizado", conduitFill: "Por verificar", length: "24 m", load: "Equipo HVAC 220 V", voltageDrop: "Por calcular", status: "Ejemplo; confirmar placa del equipo", loadSchedule: { phase: "L1-L2", loadType: "Aire acondicionado", installedVa: "5000", demandedVa: "5000", currentA: "22.73", powerFactor: "0.90", notes: "Confirmar MCA/MOCP de placa" }
+    }),
+    filledCircuit("Reserva futura", "1x20 A", "Por definir", {
+      origin: "TG", destination: "Reserva", poles: "1", amps: "20", breakerType: "Espacio disponible", breakerAicCurve: "Por definir", phaseConductor: "Por definir", neutralConductor: "Por definir", groundConductor: "Por definir", material: "Por definir", insulation: "Por definir", conductorTypeInsulation: "Por definir", conduitTypeDiameter: "Por definir", conduitMaterial: "Por definir", conduitFill: "Por verificar", length: "Por definir", load: "Reserva", voltageDrop: "Por calcular", status: "Reserva sin conectar", loadSchedule: { phase: "Por definir", loadType: "Reserva", installedVa: "0", demandedVa: "0", currentA: "0", powerFactor: "", notes: "Espacio para crecimiento" }
+    })
   ]
 };
 
@@ -123,6 +140,18 @@ function circuit(name = "Nuevo circuito", breaker = "", conductor = "") {
     voltageDrop: "Por verificar",
     status: "Dato capturado o por verificar en campo",
     loadSchedule: { ...BLANK_LOAD }
+  };
+}
+
+
+function filledCircuit(name, breaker, conductor, details = {}) {
+  const base = circuit(name, breaker, conductor);
+  return {
+    ...base,
+    ...details,
+    name: details.name || name,
+    displayName: details.displayName || name,
+    loadSchedule: { ...BLANK_LOAD, ...(details.loadSchedule || {}) }
   };
 }
 

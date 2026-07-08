@@ -15,7 +15,7 @@ No contiene calculos electricos nuevos. Los valores se limitan a lo visible en l
 
 La app incluye campos editables para tension del sistema, numero de fases y puesta a tierra, carga por circuito, longitudes, tipo de conductor y aislamiento, tipo/diametro de canalizacion, capacidad interruptiva y curva/tipo de interruptores, tablero, barras, gabinete y datos de acometida.
 
-Estos campos quedan vacios por defecto y se muestran como "Por definir" hasta capturar informacion real del proyecto.
+La version actual abre con un ejemplo didactico completo ya precargado para poder generar de inmediato un diagrama unifilar, su UnifilarScript y los PDF simplificado/completo. Los valores son muestra de captura y deben verificarse en campo antes de usarse como documento tecnico.
 
 ## UnifilarScript
 
@@ -46,3 +46,7 @@ Campos considerados para revision/captura: tension, fases, hilos, frecuencia, si
 ## Cuadro de cargas editable
 
 El apartado `Cuadro de cargas` ahora permite capturar por separado fase, tipo de carga, VA instalado, VA demandado, corriente, factor de potencia y observaciones por circuito. Esos valores actualizan el estado global de la app y se integran automaticamente al `UnifilarScript` generado.
+
+## Ejemplo completo precargado
+
+El proyecto de muestra se llama `Oficina y almacen - ejemplo didactico` e incluye datos de proyecto, acometida, sistema, tablero, puesta a tierra, seguridad STPS, ocho circuitos derivados y cuadro de cargas por circuito. Se usa como punto de partida editable para demostrar el flujo completo: llenar campos, reconstruir el plano con UnifilarScript, imprimir y descargar PDF.
