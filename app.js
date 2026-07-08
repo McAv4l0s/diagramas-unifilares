@@ -177,6 +177,19 @@ const forms = {
 };
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
+function emptyData() {
+  const base = clone(DEFAULT_DATA);
+  base.project = Object.fromEntries(Object.keys(base.project).map(key => [key, ""]));
+  base.project.title = "DIAGRAMA UNIFILAR";
+  base.project.date = new Date().toISOString().slice(0, 10);
+  base.service = Object.fromEntries(Object.keys(base.service).map(key => [key, ""]));
+  base.system = Object.fromEntries(Object.keys(base.system).map(key => [key, ""]));
+  base.panel = Object.fromEntries(Object.keys(base.panel).map(key => [key, ""]));
+  base.grounding = Object.fromEntries(Object.keys(base.grounding).map(key => [key, ""]));
+  base.stps = Object.fromEntries(Object.keys(base.stps).map(key => [key, ""]));
+  base.circuits = [];
+  return base;
+}
 function safe(value) { return String(value ?? ""); }
 function valueOrPending(value) { return safe(value).trim() || "Por definir"; }
 function numeric(value) { const n = Number(safe(value).replace(/,/g, "")); return Number.isFinite(n) && safe(value).trim() ? n : null; }
@@ -399,7 +412,7 @@ function App() {
   const syncScript = () => { setScript(generatedScript); setStatus("Codigo sincronizado desde formulario."); };
   const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData }) : active === "loads" ? h(LoadSchedule, { data, setData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData });
   return h("div", { className: "app-shell" },
-    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => window.print() }, "PDF"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); } }, "Restaurar"))),
+    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => window.print() }, "PDF"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); setData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
     h("div", { className: "main-grid" },
       h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => setActive(id) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
       h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))

@@ -123,3 +123,15 @@ footer { padding: 14px 18px; color: var(--muted); font-size: 12px; text-align: c
 .load-editor-panel {
   overflow: hidden;
 }
+
+.danger-button {
+  color: #9f1d1d;
+  border-color: #efb3b3;
+  background: #fff5f5;
+}
+
+.danger-button:hover {
+  color: #7f1d1d;
+  border-color: #dc2626;
+  background: #fee2e2;
+}
