@@ -95,3 +95,31 @@ footer { padding: 14px 18px; color: var(--muted); font-size: 12px; text-align: c
   .preview-column, .panel { border: 0; box-shadow: none; }
   .singleline { min-width: 0; }
 }
+
+.section-help {
+  margin: -6px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.editable-load-table input {
+  min-width: 92px;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.editable-load-table td:nth-child(3) input,
+.editable-load-table td:nth-child(8) input {
+  min-width: 160px;
+}
+
+.load-circuit-name {
+  min-width: 170px;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.load-editor-panel {
+  overflow: hidden;
+}

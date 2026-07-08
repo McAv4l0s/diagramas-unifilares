@@ -291,12 +291,64 @@ function CircuitsEditor({ data, setData }) {
   );
 }
 
-function LoadSummary({ circuits }) {
-  return h("section", { className: "panel" }, h("h2", null, "Cuadro de cargas"), h("div", { className: "table-wrap" }, h("table", null,
-    h("thead", null, h("tr", null, ["Circuito","Fase","Tipo","VA instalado","VA demandado","Corriente A","FP","Observaciones"].map(x => h("th", { key:x }, x)))),
-    h("tbody", null, circuits.map((c, i) => h("tr", { key: c.id }, [c.displayName || c.name, c.loadSchedule.phase, c.loadSchedule.loadType, c.loadSchedule.installedVa, c.loadSchedule.demandedVa, c.loadSchedule.currentA, c.loadSchedule.powerFactor, c.loadSchedule.notes].map((v, idx) => h("td", { key: idx }, idx === 0 ? `${i+1}. ${v}` : valueOrPending(v)))))),
-    h("tfoot", null, h("tr", null, h("th", { colSpan: 3 }, "Totales capturados"), h("td", null, total(circuits,"installedVa")), h("td", null, total(circuits,"demandedVa")), h("td", null, total(circuits,"currentA")), h("td", { colSpan: 2 }, "Suma simple de datos capturados")))
-  )));
+function LoadSchedule({ data, setData, editable = false }) {
+  const circuits = data.circuits;
+  const columns = [
+    ["phase", "Fase", "text"],
+    ["loadType", "Tipo de carga", "text"],
+    ["installedVa", "VA instalado", "number"],
+    ["demandedVa", "VA demandado", "number"],
+    ["currentA", "Corriente A", "number"],
+    ["powerFactor", "FP", "text"],
+    ["notes", "Observaciones", "text"]
+  ];
+  const updateLoad = (id, key, value) => {
+    if (!editable || !setData) return;
+    setData(d => ({
+      ...d,
+      circuits: d.circuits.map(c => c.id === id ? {
+        ...c,
+        loadSchedule: { ...c.loadSchedule, [key]: value }
+      } : c)
+    }));
+  };
+  return h("section", { className: editable ? "panel load-editor-panel" : "panel" },
+    h("div", { className: "section-title-row" },
+      h("div", null,
+        h("h2", null, editable ? "Captura del cuadro de cargas" : "Cuadro de cargas"),
+        editable ? h("p", { className: "section-help" }, "Estos campos alimentan directamente el UnifilarScript. Los totales son suma simple de valores numericos capturados.") : null
+      ),
+      editable ? h("button", { onClick: () => setData(d => ({ ...d, circuits: [...d.circuits, circuit()] })) }, "+ Circuito") : null
+    ),
+    h("div", { className: "table-wrap" }, h("table", { className: editable ? "editable-load-table" : "" },
+      h("thead", null, h("tr", null,
+        h("th", null, "Circuito"),
+        columns.map(([, label]) => h("th", { key: label }, label))
+      )),
+      h("tbody", null, circuits.map((c, i) => h("tr", { key: c.id },
+        h("td", { className: "load-circuit-name" }, `${i + 1}. ${c.displayName || c.name}`),
+        columns.map(([key, label, type]) => h("td", { key }, editable
+          ? h("input", {
+              "aria-label": `${label} - ${c.displayName || c.name}`,
+              type,
+              min: type === "number" ? "0" : undefined,
+              step: type === "number" ? "0.01" : undefined,
+              value: c.loadSchedule[key] || "",
+              placeholder: "Por definir",
+              onChange: event => updateLoad(c.id, key, event.target.value)
+            })
+          : valueOrPending(c.loadSchedule[key])
+        ))
+      ))),
+      h("tfoot", null, h("tr", null,
+        h("th", { colSpan: 3 }, "Totales capturados"),
+        h("td", null, total(circuits, "installedVa")),
+        h("td", null, total(circuits, "demandedVa")),
+        h("td", null, total(circuits, "currentA")),
+        h("td", { colSpan: 2 }, "Suma simple; no sustituye calculo de demanda ni memoria tecnica.")
+      ))
+    ))
+  );
 }
 
 function Diagram({ data }) {
@@ -345,12 +397,12 @@ function App() {
   useEffect(() => setScript(generatedScript), [generatedScript]);
   const applyScript = () => { try { const parsed = parseScript(script); setData(parsed); setStatus(`Plano reconstruido: ${parsed.circuits.length} circuito(s).`); } catch (e) { setStatus(e.message); } };
   const syncScript = () => { setScript(generatedScript); setStatus("Codigo sincronizado desde formulario."); };
-  const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData }) : active === "loads" ? h(LoadSummary, { circuits: data.circuits }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData });
+  const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData }) : active === "loads" ? h(LoadSchedule, { data, setData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData });
   return h("div", { className: "app-shell" },
     h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => window.print() }, "PDF"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); } }, "Restaurar"))),
     h("div", { className: "main-grid" },
       h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => setActive(id) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
-      h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSummary, { circuits: data.circuits }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))
+      h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))
     ),
     h("footer", null, "La app no sustituye memoria de calculo, dictamen, UVIE o responsiva profesional. Los valores deben confirmarse en campo.")
   );

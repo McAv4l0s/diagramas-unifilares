@@ -42,3 +42,7 @@ La interfaz fue migrada a React y organiza la captura en secciones: proyecto, ac
 El formulario genera automaticamente `UnifilarScript v2`, un lenguaje textual propio para reconstruir diagramas unifilares a partir del levantamiento en campo. La app no ejecuta calculos normativos automaticos; conserva campos de captura y leyendas de verificacion para evitar datos inventados.
 
 Campos considerados para revision/captura: tension, fases, hilos, frecuencia, sistema de puesta a tierra, acometida, medicion, interruptor principal, capacidad interruptiva, alimentador, tipo de conductor, aislamiento, canalizacion, tablero, barras, gabinete, circuitos derivados, protecciones, conductores de fase/neutro/tierra, longitudes, cargas, cuadro de cargas, EPP, bloqueo/etiquetado, rotulado y notas de riesgo.
+
+## Cuadro de cargas editable
+
+El apartado `Cuadro de cargas` ahora permite capturar por separado fase, tipo de carga, VA instalado, VA demandado, corriente, factor de potencia y observaciones por circuito. Esos valores actualizan el estado global de la app y se integran automaticamente al `UnifilarScript` generado.
