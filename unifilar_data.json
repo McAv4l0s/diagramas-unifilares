@@ -1,0 +1,197 @@
+{
+  "project": {
+    "title": "DIAGRAMA UNIFILAR",
+    "source": "Transcripcion de imagen proporcionada por el usuario",
+    "standardNotes": [
+      "Documento de apoyo tecnico. No sustituye memoria de calculo, dictamen, responsiva profesional ni verificacion por UVIE/perito.",
+      "Los calibres se transcriben como aparecen en la imagen; confirmar si corresponden a AWG, tipo de conductor, aislamiento y canalizacion.",
+      "No se calculan capacidad de conduccion, caida de tension, corriente de cortocircuito, canalizacion, puesta a tierra ni coordinacion de protecciones porque la imagen no proporciona tension, fases, carga, longitud, temperatura, agrupamiento ni material.",
+      "Para instalaciones electricas en Mexico, revisar NOM-001-SEDE vigente aplicable al proyecto. La NOM-002-STPS aplica a prevencion y proteccion contra incendios en centros de trabajo cuando corresponda."
+    ],
+    "missingData": [
+      "Tension del sistema",
+      "Numero de fases y sistema de puesta a tierra",
+      "Carga instalada o demandada por circuito",
+      "Longitudes de alimentadores y derivados",
+      "Tipo de conductor y aislamiento",
+      "Tipo y diametro de canalizacion",
+      "Capacidad interruptiva y curva/tipo de interruptores",
+      "Tablero, barras, gabinete y datos de acometida"
+    ]
+  },
+  "service": {
+    "label": "Acometida CFE",
+    "mainBreaker": "2x70",
+    "feeder": "2 cal.8, 1 cal. 8 N, 1 cal. 12 T",
+    "systemVoltage": "",
+    "phasesGrounding": "",
+    "feederLength": "",
+    "conductorTypeInsulation": "",
+    "conduitTypeDiameter": "",
+    "mainBreakerAicCurve": "",
+    "panelBusServiceData": ""
+  },
+  "circuits": [
+    {
+      "id": "c1",
+      "name": "Contacto Administracion",
+      "displayName": "Contacto\nAdministracion",
+      "breaker": "1x30",
+      "conductor": "2 cal.10, 1 cal. 10 N, 1 cal. 12 T",
+      "status": "Dato visible en imagen",
+      "load": "",
+      "length": "",
+      "conductorTypeInsulation": "",
+      "conduitTypeDiameter": "",
+      "breakerAicCurve": "",
+      "panelBusServiceData": "",
+      "loadSchedule": {
+        "phase": "",
+        "loadType": "",
+        "installedVa": "",
+        "demandedVa": "",
+        "currentA": "",
+        "powerFactor": "",
+        "notes": ""
+      }
+    },
+    {
+      "id": "c2",
+      "name": "Contacto Almacen",
+      "displayName": "Contacto\nAlmacen",
+      "breaker": "1x30",
+      "conductor": "2 cal.10, 1 cal. 10 N, 1 cal. 12 T",
+      "status": "Dato visible en imagen",
+      "load": "",
+      "length": "",
+      "conductorTypeInsulation": "",
+      "conduitTypeDiameter": "",
+      "breakerAicCurve": "",
+      "panelBusServiceData": "",
+      "loadSchedule": {
+        "phase": "",
+        "loadType": "",
+        "installedVa": "",
+        "demandedVa": "",
+        "currentA": "",
+        "powerFactor": "",
+        "notes": ""
+      }
+    },
+    {
+      "id": "c3",
+      "name": "Contactos exteriores",
+      "displayName": "Contactos\nexteriores",
+      "breaker": "1x30",
+      "conductor": "2 cal.10, 1 cal. 10 N, 1 cal. 12 T",
+      "status": "Dato visible en imagen",
+      "load": "",
+      "length": "",
+      "conductorTypeInsulation": "",
+      "conduitTypeDiameter": "",
+      "breakerAicCurve": "",
+      "panelBusServiceData": "",
+      "loadSchedule": {
+        "phase": "",
+        "loadType": "",
+        "installedVa": "",
+        "demandedVa": "",
+        "currentA": "",
+        "powerFactor": "",
+        "notes": ""
+      }
+    },
+    {
+      "id": "c4",
+      "name": "Iluminacion",
+      "displayName": "Iluminacion",
+      "breaker": "1x15",
+      "conductor": "2 cal.12, 1 cal. 12 N, 1 cal. 14 T",
+      "status": "Dato visible en imagen",
+      "load": "",
+      "length": "",
+      "conductorTypeInsulation": "",
+      "conduitTypeDiameter": "",
+      "breakerAicCurve": "",
+      "panelBusServiceData": "",
+      "loadSchedule": {
+        "phase": "",
+        "loadType": "",
+        "installedVa": "",
+        "demandedVa": "",
+        "currentA": "",
+        "powerFactor": "",
+        "notes": ""
+      }
+    },
+    {
+      "id": "c5",
+      "name": "Servidor",
+      "displayName": "Servidor",
+      "breaker": "1x10",
+      "conductor": "2 cal.12, 1 cal. 12 N, 1 cal. 14 T",
+      "status": "Dato visible en imagen",
+      "load": "",
+      "length": "",
+      "conductorTypeInsulation": "",
+      "conduitTypeDiameter": "",
+      "breakerAicCurve": "",
+      "panelBusServiceData": "",
+      "loadSchedule": {
+        "phase": "",
+        "loadType": "",
+        "installedVa": "",
+        "demandedVa": "",
+        "currentA": "",
+        "powerFactor": "",
+        "notes": ""
+      }
+    },
+    {
+      "id": "c6",
+      "name": "Disponible",
+      "displayName": "Disponible",
+      "breaker": "1x10",
+      "conductor": "2 cal.12, 1 cal. 12 N, 1 cal. 14 T",
+      "status": "Dato visible en imagen",
+      "load": "",
+      "length": "",
+      "conductorTypeInsulation": "",
+      "conduitTypeDiameter": "",
+      "breakerAicCurve": "",
+      "panelBusServiceData": "",
+      "loadSchedule": {
+        "phase": "",
+        "loadType": "",
+        "installedVa": "",
+        "demandedVa": "",
+        "currentA": "",
+        "powerFactor": "",
+        "notes": ""
+      }
+    },
+    {
+      "id": "c7",
+      "name": "Aire/A.",
+      "displayName": "Aire/A.",
+      "breaker": "2x50",
+      "conductor": "2 cal.8, 1 cal. 8 N, 1 cal. 12 T",
+      "status": "Dato visible en imagen",
+      "load": "",
+      "length": "",
+      "conductorTypeInsulation": "",
+      "conduitTypeDiameter": "",
+      "breakerAicCurve": "",
+      "panelBusServiceData": "",
+      "loadSchedule": {
+        "phase": "",
+        "loadType": "",
+        "installedVa": "",
+        "demandedVa": "",
+        "currentA": "",
+        "powerFactor": "",
+        "notes": ""
+      }
+    }
+  ]
+}
