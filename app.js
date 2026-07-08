@@ -420,6 +420,70 @@ function Diagram({ data }) {
   );
 }
 
+
+function MobileSchematic({ data, generatedScript, undo, canUndo, restore }) {
+  const circuits = data.circuits || [];
+  const width = 390;
+  const row = 86;
+  const height = 250 + Math.max(circuits.length, 1) * row;
+  const circuitY = i => 230 + i * row;
+  return h("section", { className: "mobile-schematic" },
+    h("div", { className: "mobile-hero" },
+      h("div", null,
+        h("span", { className: "mobile-kicker" }, "Modo movil"),
+        h("h1", null, "Diagrama unifilar esquematico"),
+        h("p", null, valueOrPending(data.project.projectName))
+      ),
+      h("div", { className: "mobile-badge" }, `${circuits.length} circuitos`)
+    ),
+    h("div", { className: "mobile-actions" },
+      h("button", { onClick: undo, disabled: !canUndo }, "Deshacer"),
+      h("button", { onClick: () => window.print() }, "Imprimir"),
+      h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF"),
+      h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Script"),
+      h("button", { onClick: restore }, "Restaurar")
+    ),
+    h("div", { className: "mobile-summary" },
+      h("div", null, h("span", null, "Tension"), h("strong", null, valueOrPending(data.system.voltage))),
+      h("div", null, h("span", null, "Sistema"), h("strong", null, `${valueOrPending(data.system.phases)} / ${valueOrPending(data.system.wires)}`)),
+      h("div", null, h("span", null, "Principal"), h("strong", null, valueOrPending(data.service.mainBreaker))),
+      h("div", null, h("span", null, "Tablero"), h("strong", null, valueOrPending(data.panel.id || data.panel.name)))
+    ),
+    h("div", { className: "phone-canvas", role: "img", "aria-label": "Diagrama unifilar esquematico movil" },
+      h("svg", { viewBox: `0 0 ${width} ${height}`, className: "mobile-svg" },
+        h("rect", { width, height, rx: 0, fill: "#ffffff" }),
+        h("text", { x: 195, y: 34, textAnchor: "middle", className: "m-title" }, data.project.title || "DIAGRAMA UNIFILAR"),
+        h("rect", { x: 116, y: 58, width: 158, height: 36, rx: 3, className: "m-box" }),
+        h("text", { x: 195, y: 81, textAnchor: "middle", className: "m-label" }, valueOrPending(data.service.label)),
+        h("line", { x1: 195, y1: 94, x2: 195, y2: 132, className: "m-line" }),
+        h("path", { d: "M177 162 C165 148 166 134 181 124", className: "m-line" }),
+        h("text", { x: 207, y: 151, className: "m-breaker" }, valueOrPending(data.service.mainBreaker)),
+        h("line", { x1: 195, y1: 166, x2: 195, y2: 188, className: "m-line" }),
+        h("rect", { x: 120, y: 188, width: 150, height: 34, rx: 3, className: "m-box m-dashed" }),
+        h("text", { x: 195, y: 209, textAnchor: "middle", className: "m-label" }, valueOrPending(data.panel.name)),
+        circuits.map((c, i) => {
+          const y = circuitY(i);
+          return h("g", { key: c.id },
+            h("line", { x1: 195, y1: i === 0 ? 222 : circuitY(i - 1) + 48, x2: 195, y2: y, className: "m-bus" }),
+            h("circle", { cx: 195, cy: y, r: 4, className: "m-node" }),
+            h("line", { x1: 195, y1: y, x2: 78, y2: y, className: "m-line" }),
+            h("path", { d: `M94 ${y + 30} C82 ${y + 18} 83 ${y + 4} 97 ${y - 4}`, className: "m-line" }),
+            h("text", { x: 104, y: y + 22, className: "m-breaker" }, c.breaker || "P/D"),
+            h("rect", { x: 216, y: y - 24, width: 140, height: 48, rx: 4, className: "m-load" }),
+            h("text", { x: 226, y: y - 4, className: "m-circuit" }, `${i + 1}. ${c.displayName || c.name}`.slice(0, 26)),
+            h("text", { x: 226, y: y + 14, className: "m-meta" }, `${valueOrPending(c.loadSchedule?.phase)}  ${valueOrPending(c.loadSchedule?.demandedVa)} VA`.slice(0, 30))
+          );
+        })
+      )
+    ),
+    h("div", { className: "mobile-circuit-list" }, circuits.map((c, i) => h("article", { key: c.id },
+      h("strong", null, `${i + 1}. ${c.displayName || c.name}`),
+      h("span", null, `${valueOrPending(c.breaker)} | ${valueOrPending(c.conductor)}`),
+      h("small", null, `${valueOrPending(c.loadSchedule?.phase)} | ${valueOrPending(c.loadSchedule?.demandedVa)} VA | ${valueOrPending(c.loadSchedule?.currentA)} A`)
+    )))
+  );
+}
+
 function ScriptPanel({ script, setScript, apply, sync, download }) {
   return h("section", { className: "panel script-panel" },
     h("div", { className: "section-title-row" }, h("h2", null, "UnifilarScript"), h("div", { className: "button-row" }, h("button", { onClick: sync }, "Sincronizar"), h("button", { onClick: apply }, "Aplicar codigo"), h("button", { onClick: download }, "Descargar .unifilar"))),
@@ -640,9 +704,11 @@ function App() {
   const applyScript = () => { try { const parsed = parseScript(script); commitData(parsed); setStatus(`Plano reconstruido: ${parsed.circuits.length} circuito(s).`); } catch (e) { setStatus(e.message); } };
   const syncScript = () => { setScript(generatedScript); setStatus("Codigo sincronizado desde formulario."); };
   const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData: commitData }) : active === "loads" ? h(LoadSchedule, { data, setData: commitData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData: commitData });
+  const restoreExample = () => { localStorage.removeItem(STORAGE_KEY); commitData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); };
   return h("div", { className: "app-shell" },
-    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: undoLastChange, disabled: !history.length, title: "Deshacer ultimo cambio" }, "Deshacer"), h("button", { onClick: () => window.print() }, "Imprimir"), h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF simplificado"), h("button", { onClick: () => downloadPdf(data, "complete") }, "PDF completo"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); commitData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); commitData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
-    h("div", { className: "main-grid" },
+    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: undoLastChange, disabled: !history.length, title: "Deshacer ultimo cambio" }, "Deshacer"), h("button", { onClick: () => window.print() }, "Imprimir"), h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF simplificado"), h("button", { onClick: () => downloadPdf(data, "complete") }, "PDF completo"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: restoreExample }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); commitData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
+    h(MobileSchematic, { data, generatedScript, undo: undoLastChange, canUndo: !!history.length, restore: restoreExample }),
+    h("div", { className: "main-grid desktop-layout" },
       h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => setActive(id) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
       h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))
     ),

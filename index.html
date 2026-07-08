@@ -4,10 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Generador de Diagrama Unifilar Dinamico</title>
-    <link rel="stylesheet" href="./styles.css?v=react-blue-8" />
+    <meta name="theme-color" content="#06345f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Unifilares" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="./manifest.webmanifest?v=react-blue-9" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="stylesheet" href="./styles.css?v=react-blue-9" />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="./app.js?v=react-blue-8"></script>
+    <script type="module" src="./app.js?v=react-blue-9"></script>
+    <script>if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=react-blue-9"));</script>
   </body>
 </html>

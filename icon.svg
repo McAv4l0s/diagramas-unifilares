@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#06345f"/>
+  <path d="M256 72v82m0 54v70m-132 0h264M124 278v88m132-88v88m132-88v88" fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M228 208c-24-25-24-62 3-88" fill="none" stroke="#9ed4ff" stroke-width="20" stroke-linecap="round"/>
+  <rect x="166" y="366" width="180" height="58" rx="12" fill="#ffffff"/>
+  <text x="256" y="405" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="35" font-weight="800" fill="#06345f">DU</text>
+</svg>

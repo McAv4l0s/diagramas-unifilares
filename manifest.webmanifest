@@ -1,0 +1,14 @@
+{
+  "name": "Diagramas Unifilares Esquematicos",
+  "short_name": "Unifilares",
+  "description": "Version movil para consultar diagramas unifilares esquematicos.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eaf3ff",
+  "theme_color": "#06345f",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

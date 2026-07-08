@@ -50,3 +50,7 @@ El apartado `Cuadro de cargas` ahora permite capturar por separado fase, tipo de
 ## Ejemplo completo precargado
 
 El proyecto de muestra se llama `Oficina y almacen - ejemplo didactico` e incluye datos de proyecto, acometida, sistema, tablero, puesta a tierra, seguridad STPS, ocho circuitos derivados y cuadro de cargas por circuito. Se usa como punto de partida editable para demostrar el flujo completo: llenar campos, reconstruir el plano con UnifilarScript, imprimir y descargar PDF.
+
+## Version movil PWA
+
+La app incluye una vista movil enfocada solo en diagramas unifilares esquematicos. En telefonos iOS y Android se muestra una pantalla compacta con resumen electrico, acciones basicas, diagrama vertical y lista de circuitos. Tambien incluye `manifest.webmanifest`, `sw.js` e icono SVG para instalacion tipo PWA desde el navegador.
