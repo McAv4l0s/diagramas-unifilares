@@ -404,7 +404,7 @@ function pdfSafe(value) {
   return safe(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
-function buildPdfDocument(current) {
+function buildPdfDocument(current, mode = "simple") {
   const pages = [];
   const makePage = () => [];
   const text = (cmds, value, x, y, size = 9, font = "F1") => cmds.push(`BT /${font} ${size} Tf ${x} ${y} Td (${pdfSafe(value)}) Tj ET`);
@@ -478,6 +478,74 @@ function buildPdfDocument(current) {
   text(p2, "Totales por suma simple de valores capturados.", 42, 58, 7);
   pages.push(p2);
 
+
+  if (mode === "complete") {
+    const addSectionPage = (title, rows) => {
+      let page = makePage();
+      let pageIndex = 0;
+      let y = 542;
+      const beginPage = () => {
+        page = makePage();
+        page.push("0.6 w");
+        text(page, pageIndex ? `${title} (cont.)` : title, 42, 570, 16, "F2");
+        y = 542;
+        pageIndex += 1;
+      };
+      beginPage();
+      rows.forEach(([label, value]) => {
+        if (y < 54) {
+          pages.push(page);
+          beginPage();
+        }
+        cell(page, label, 42, y, 190, 22, 6.5, "F2");
+        cell(page, value, 232, y, 510, 22, 6.5);
+        y -= 22;
+      });
+      pages.push(page);
+    };
+
+    addSectionPage("Datos completos - proyecto", [
+      ["Titulo", current.project.title], ["Proyecto", current.project.projectName], ["Ubicacion", current.project.location],
+      ["Fecha", current.project.date], ["Elaboro", current.project.preparedBy], ["Reviso", current.project.reviewedBy],
+      ["No. plano", current.project.drawingNumber], ["Revision", current.project.revision], ["Normas/base", current.project.standards],
+      ["Notas", current.project.notes]
+    ]);
+    addSectionPage("Datos completos - acometida y sistema", [
+      ["Etiqueta acometida", current.service.label], ["Compania", current.service.utility], ["Tipo servicio", current.service.serviceType],
+      ["Medicion", current.service.meter], ["Interruptor principal", current.service.mainBreaker], ["Polos", current.service.mainBreakerPoles],
+      ["Amperes", current.service.mainBreakerAmps], ["AIC/curva", current.service.mainBreakerAicCurve], ["Alimentador", current.service.feeder],
+      ["Longitud alimentador", current.service.feederLength], ["Conductor/aislamiento", current.service.conductorTypeInsulation],
+      ["Canalizacion", current.service.conduitTypeDiameter], ["Datos acometida/tablero", current.service.panelBusServiceData],
+      ["Tension", current.system.voltage], ["Fases", current.system.phases], ["Hilos", current.system.wires], ["Frecuencia", current.system.frequency],
+      ["Sistema puesta a tierra", current.system.groundingSystem], ["Cortocircuito disponible", current.system.availableShortCircuit],
+      ["Factor demanda", current.system.demandFactor], ["Factor potencia", current.system.powerFactor], ["Demanda maxima", current.system.maxDemand]
+    ]);
+    addSectionPage("Datos completos - tablero, tierra y STPS", [
+      ["ID tablero", current.panel.id], ["Nombre tablero", current.panel.name], ["Ubicacion", current.panel.location], ["Tension", current.panel.voltage],
+      ["Fases/hilos", current.panel.phases], ["Capacidad barras", current.panel.busAmps], ["Material barras", current.panel.busMaterial],
+      ["No. barras", current.panel.bars], ["Gabinete", current.panel.enclosure], ["Montaje", current.panel.mounting], ["NEMA/IP", current.panel.nema],
+      ["Capacidad interruptiva", current.panel.interruptingRating], ["Dispositivo principal", current.panel.mainDevice],
+      ["Barra neutro", current.panel.neutralBar], ["Barra tierra", current.panel.groundBar],
+      ["Electrodo tierra", current.grounding.electrode], ["Conductor tierra", current.grounding.groundingConductor],
+      ["Union/equipotencialidad", current.grounding.bonding], ["Resistencia medida", current.grounding.resistance], ["Notas tierra", current.grounding.notes],
+      ["Riesgo trabajo/area", current.stps.workRisk], ["Bloqueo y etiquetado", current.stps.loto], ["EPP", current.stps.ppe],
+      ["Rotulado/arc flash", current.stps.arcFlashLabel], ["Riesgo incendio/area", current.stps.fireRiskArea], ["Notas emergencia", current.stps.emergencyNotes]
+    ]);
+
+    current.circuits.forEach((c, index) => {
+      const load = c.loadSchedule || {};
+      addSectionPage(`Circuito ${index + 1} - ${valueOrPending(c.displayName || c.name)}`, [
+        ["Nombre visible", c.displayName], ["Origen", c.origin], ["Destino", c.destination], ["Interruptor", c.breaker],
+        ["Polos", c.poles], ["Amperes", c.amps], ["Tipo interruptor", c.breakerType], ["AIC/curva", c.breakerAicCurve],
+        ["Conductores", c.conductor], ["Conductor fase", c.phaseConductor], ["Neutro", c.neutralConductor], ["Tierra", c.groundConductor],
+        ["Material", c.material], ["Aislamiento", c.insulation], ["Canalizacion", c.conduitTypeDiameter], ["Material canalizacion", c.conduitMaterial],
+        ["Longitud", c.length], ["Carga/descripcion", c.load], ["Caida tension", c.voltageDrop], ["Estatus", c.status],
+        ["Fase cuadro cargas", load.phase], ["Tipo carga", load.loadType], ["VA instalado", load.installedVa], ["VA demandado", load.demandedVa],
+        ["Corriente A", load.currentA], ["FP", load.powerFactor], ["Observaciones", load.notes]
+      ]);
+    });
+  }
+
   const streams = pages.map(page => page.join("\n"));
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -501,12 +569,12 @@ function buildPdfDocument(current) {
   return new Uint8Array([...pdf].map(char => char.charCodeAt(0)));
 }
 
-function downloadPdf(current) {
-  const pdf = buildPdfDocument(current);
+function downloadPdf(current, mode = "simple") {
+  const pdf = buildPdfDocument(current, mode);
   const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = "diagrama-unifilar.pdf";
+  a.download = mode === "complete" ? "diagrama-unifilar-completo.pdf" : "diagrama-unifilar-simplificado.pdf";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -523,7 +591,7 @@ function App() {
   const syncScript = () => { setScript(generatedScript); setStatus("Codigo sincronizado desde formulario."); };
   const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData }) : active === "loads" ? h(LoadSchedule, { data, setData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData });
   return h("div", { className: "app-shell" },
-    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => downloadPdf(data) }, "Descargar PDF"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); setData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
+    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF simplificado"), h("button", { onClick: () => downloadPdf(data, "complete") }, "PDF completo"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); setData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
     h("div", { className: "main-grid" },
       h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => setActive(id) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
       h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))
