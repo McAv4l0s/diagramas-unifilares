@@ -400,6 +400,117 @@ function ScriptPanel({ script, setScript, apply, sync, download }) {
 
 function downloadText(name, text, type="text/plain") { const url = URL.createObjectURL(new Blob([text], { type })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); }
 
+function pdfSafe(value) {
+  return safe(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function buildPdfDocument(current) {
+  const pages = [];
+  const makePage = () => [];
+  const text = (cmds, value, x, y, size = 9, font = "F1") => cmds.push(`BT /${font} ${size} Tf ${x} ${y} Td (${pdfSafe(value)}) Tj ET`);
+  const line = (cmds, x1, y1, x2, y2) => cmds.push(`${x1} ${y1} m ${x2} ${y2} l S`);
+  const rect = (cmds, x, y, w, h) => cmds.push(`${x} ${y} ${w} ${h} re S`);
+  const cell = (cmds, value, x, y, w, h, size = 6.5, font = "F1") => {
+    rect(cmds, x, y, w, h);
+    const max = Math.max(8, Math.floor(w / (size * 0.48)));
+    const words = valueOrPending(value).split(/\s+/);
+    const rows = [];
+    let row = "";
+    words.forEach(word => {
+      const next = `${row} ${word}`.trim();
+      if (next.length > max && row) { rows.push(row); row = word; } else row = next;
+    });
+    if (row) rows.push(row);
+    rows.slice(0, 2).forEach((part, index) => text(cmds, part, x + 3, y + h - 9 - index * (size + 2), size, font));
+  };
+
+  const p1 = makePage();
+  p1.push("0.8 w");
+  text(p1, current.project.title || "DIAGRAMA UNIFILAR", 42, 570, 18, "F2");
+  text(p1, `Proyecto: ${valueOrPending(current.project.projectName)}`, 42, 550, 9);
+  text(p1, `Ubicacion: ${valueOrPending(current.project.location)}`, 42, 536, 8);
+  text(p1, `Fecha: ${valueOrPending(current.project.date)}  Plano: ${valueOrPending(current.project.drawingNumber)}  Rev: ${valueOrPending(current.project.revision)}`, 42, 522, 8);
+  text(p1, "Datos principales", 42, 498, 11, "F2");
+  const serviceRows = [
+    ["Acometida", current.service.label], ["Compania", current.service.utility], ["Servicio", current.service.serviceType],
+    ["Interruptor principal", current.service.mainBreaker], ["AIC/curva", current.service.mainBreakerAicCurve], ["Alimentador", current.service.feeder],
+    ["Tension", current.system.voltage], ["Fases/hilos", `${valueOrPending(current.system.phases)} / ${valueOrPending(current.system.wires)}`],
+    ["Tablero", `${valueOrPending(current.panel.id)} ${valueOrPending(current.panel.name)}`], ["Puesta a tierra", current.system.groundingSystem]
+  ];
+  let y = 476;
+  serviceRows.forEach(([label, value]) => { cell(p1, label, 42, y, 125, 18, 7, "F2"); cell(p1, value, 167, y, 265, 18, 7); y -= 18; });
+  text(p1, "Diagrama unifilar simplificado", 470, 498, 11, "F2");
+  const centerX = 610;
+  rect(p1, centerX - 54, 452, 108, 24); text(p1, current.service.label || "Acometida", centerX - 38, 461, 7);
+  line(p1, centerX, 452, centerX, 420); text(p1, current.service.mainBreaker || "P/D", centerX + 8, 430, 8, "F2");
+  line(p1, 470, 400, 744, 400);
+  const circuits = current.circuits.slice(0, 10);
+  const gap = circuits.length > 1 ? 274 / (circuits.length - 1) : 0;
+  circuits.forEach((c, i) => {
+    const x = circuits.length > 1 ? 470 + gap * i : centerX;
+    line(p1, x, 400, x, 354);
+    text(p1, c.breaker || "P/D", x - 8, 374, 6, "F2");
+    rect(p1, x - 24, 322, 48, 24);
+    text(p1, `${i + 1}`, x - 3, 332, 6, "F2");
+  });
+  text(p1, circuits.length < current.circuits.length ? `Se muestran 10 de ${current.circuits.length} circuitos.` : `Circuitos: ${current.circuits.length}`, 470, 300, 7);
+  text(p1, "Notas: PDF generado desde captura. No sustituye memoria de calculo ni validacion profesional.", 42, 42, 7);
+  pages.push(p1);
+
+  const p2 = makePage();
+  p2.push("0.6 w");
+  text(p2, "Circuitos y cuadro de cargas", 42, 570, 16, "F2");
+  const cols = [34, 108, 58, 105, 48, 54, 54, 48, 44, 165];
+  const headers = ["No", "Circuito", "Interruptor", "Conductores", "Fase", "VA inst", "VA dem", "A", "FP", "Observaciones"];
+  let x = 36; y = 542;
+  headers.forEach((header, i) => { cell(p2, header, x, y, cols[i], 20, 6, "F2"); x += cols[i]; });
+  y -= 20;
+  current.circuits.slice(0, 18).forEach((c, index) => {
+    x = 36;
+    const load = c.loadSchedule || {};
+    [index + 1, c.displayName || c.name, c.breaker, c.conductor, load.phase, load.installedVa, load.demandedVa, load.currentA, load.powerFactor, load.notes]
+      .forEach((value, i) => { cell(p2, value, x, y, cols[i], 24, 5.7); x += cols[i]; });
+    y -= 24;
+  });
+  text(p2, `Total VA instalado: ${total(current.circuits, "installedVa")}`, 42, 78, 8, "F2");
+  text(p2, `Total VA demandado: ${total(current.circuits, "demandedVa")}`, 220, 78, 8, "F2");
+  text(p2, `Total corriente A: ${total(current.circuits, "currentA")}`, 410, 78, 8, "F2");
+  text(p2, "Totales por suma simple de valores capturados.", 42, 58, 7);
+  pages.push(p2);
+
+  const streams = pages.map(page => page.join("\n"));
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Pages /Kids [${streams.map((_, i) => `${3 + i * 2} 0 R`).join(" ")}] /Count ${streams.length} >>`
+  ];
+  streams.forEach((stream, i) => {
+    const pageObj = 3 + i * 2;
+    const contentObj = pageObj + 1;
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 ${3 + streams.length * 2} 0 R /F2 ${4 + streams.length * 2} 0 R >> >> /Contents ${contentObj} 0 R >>`);
+    objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+  });
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((obj, index) => { offsets.push(pdf.length); pdf += `${index + 1} 0 obj\n${obj}\nendobj\n`; });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach(offset => { pdf += `${String(offset).padStart(10, "0")} 00000 n \n`; });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new Uint8Array([...pdf].map(char => char.charCodeAt(0)));
+}
+
+function downloadPdf(current) {
+  const pdf = buildPdfDocument(current);
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "diagrama-unifilar.pdf";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function App() {
   const [data, setData] = useState(() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(DEFAULT_DATA); } catch { return clone(DEFAULT_DATA); } });
   const [active, setActive] = useState("project");
@@ -412,7 +523,7 @@ function App() {
   const syncScript = () => { setScript(generatedScript); setStatus("Codigo sincronizado desde formulario."); };
   const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData }) : active === "loads" ? h(LoadSchedule, { data, setData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData });
   return h("div", { className: "app-shell" },
-    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => window.print() }, "PDF"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); setData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
+    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => downloadPdf(data) }, "Descargar PDF"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); setData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
     h("div", { className: "main-grid" },
       h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => setActive(id) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
       h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))
