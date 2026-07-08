@@ -55,9 +55,35 @@ const totalInstalledVa = document.getElementById("totalInstalledVa");
 const totalDemandedVa = document.getElementById("totalDemandedVa");
 const totalCurrentA = document.getElementById("totalCurrentA");
 const statusText = document.getElementById("statusText");
+const dslEditor = document.getElementById("dslEditor");
+const dslStatus = document.getElementById("dslStatus");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function blankLoadSchedule() {
+  return { phase: "", loadType: "", installedVa: "", demandedVa: "", currentA: "", powerFactor: "", notes: "" };
+}
+
+function createCircuit(input = {}, index = 0) {
+  const name = input.name || input.displayName || `Circuito ${index + 1}`;
+  const displayName = input.displayName || String(name).replace(/\s+\/\s+/g, "\n");
+  return {
+    id: input.id || `c${index + 1}`,
+    name: String(input.name || displayName).replace(/\n/g, " "),
+    displayName,
+    breaker: input.breaker || "",
+    conductor: input.conductor || "",
+    load: input.load || "",
+    length: input.length || "",
+    conductorTypeInsulation: input.conductorTypeInsulation || "",
+    conduitTypeDiameter: input.conduitTypeDiameter || "",
+    breakerAicCurve: input.breakerAicCurve || "",
+    panelBusServiceData: input.panelBusServiceData || "",
+    loadSchedule: { ...blankLoadSchedule(), ...(input.loadSchedule || {}) },
+    status: input.status || "Dato capturado o por confirmar en campo"
+  };
 }
 
 function loadState() {
@@ -73,17 +99,8 @@ function loadState() {
       service: { ...defaults.service, ...(parsed.service || {}) }
     };
     const parsedCircuits = Array.isArray(parsed.circuits) ? parsed.circuits : [];
-    merged.circuits = defaults.circuits.map((circuit, index) => {
-      const parsedCircuit = parsedCircuits[index] || {};
-      return {
-        ...circuit,
-        ...parsedCircuit,
-        loadSchedule: {
-          ...(circuit.loadSchedule || {}),
-          ...(parsedCircuit.loadSchedule || {})
-        }
-      };
-    });
+    const sourceCircuits = parsedCircuits.length ? parsedCircuits : defaults.circuits;
+    merged.circuits = sourceCircuits.map((circuit, index) => createCircuit(circuit, index));
     return merged;
   } catch {
     return defaults;
@@ -159,38 +176,48 @@ function drawBreaker(parent, x, y, label) {
 }
 
 function drawDiagram() {
-  svg.setAttribute("viewBox", "0 0 1150 760");
+  const branchCount = Math.max(data.circuits.length, 1);
+  const svgWidth = Math.max(1150, 240 + branchCount * 145);
+  const centerX = svgWidth / 2;
+  svg.setAttribute("viewBox", `0 0 ${svgWidth} 760`);
+  svg.style.minWidth = `${Math.min(svgWidth, 1800)}px`;
   svg.innerHTML = "";
-  svg.appendChild(makeSvg("rect", { x: 0, y: 0, width: 1150, height: 760, fill: "#fff" }));
+  svg.appendChild(makeSvg("rect", { x: 0, y: 0, width: svgWidth, height: 760, fill: "#fff" }));
 
-  addText(svg, data.project.title, 575, 78, { className: "diagram-title" });
-  drawBox(svg, 492, 108, 166, 42, data.service.label, "");
-  svg.appendChild(makeSvg("line", { x1: 575, y1: 150, x2: 575, y2: 195, class: "svg-line" }));
-  drawBreaker(svg, 570, 222, data.service.mainBreaker);
-  svg.appendChild(makeSvg("line", { x1: 575, y1: 252, x2: 575, y2: 350, class: "svg-line" }));
-  addText(svg, wrapText(data.service.feeder, 25), 600, 260, { anchor: "start", className: "svg-small svg-bold", lineHeight: 17 });
+  addText(svg, data.project.title, centerX, 78, { className: "diagram-title" });
+  drawBox(svg, centerX - 83, 108, 166, 42, data.service.label, "");
+  svg.appendChild(makeSvg("line", { x1: centerX, y1: 150, x2: centerX, y2: 195, class: "svg-line" }));
+  drawBreaker(svg, centerX - 5, 222, data.service.mainBreaker);
+  svg.appendChild(makeSvg("line", { x1: centerX, y1: 252, x2: centerX, y2: 350, class: "svg-line" }));
+  addText(svg, wrapText(data.service.feeder || "Alimentador por definir", 25), centerX + 25, 260, { anchor: "start", className: "svg-small svg-bold", lineHeight: 17 });
 
   const busY = 350;
-  const startX = 165;
-  const endX = 985;
+  const startX = 120;
+  const endX = svgWidth - 120;
   svg.appendChild(makeSvg("line", { x1: startX, y1: busY, x2: endX, y2: busY, class: "svg-line" }));
 
-  const gap = (endX - startX) / (data.circuits.length - 1);
+  if (!data.circuits.length) {
+    addText(svg, "Sin circuitos definidos", centerX, 455, { className: "svg-bold" });
+    return;
+  }
+
+  const gap = data.circuits.length > 1 ? (endX - startX) / (data.circuits.length - 1) : 0;
   data.circuits.forEach((circuit, index) => {
-    const x = startX + gap * index;
+    const x = data.circuits.length > 1 ? startX + gap * index : centerX;
     const group = makeSvg("g", { class: circuit.id === selectedCircuitId ? "branch-selected" : "" });
     group.dataset.id = circuit.id;
     svg.appendChild(group);
 
     group.appendChild(makeSvg("line", { x1: x, y1: busY, x2: x, y2: 396, class: "svg-line" }));
-    addText(group, wrapText(circuit.conductor, 16), x + 19, 395, { anchor: "start", className: "svg-tiny svg-bold", lineHeight: 15 });
-    drawBreaker(group, x - 3, 450, circuit.breaker);
+    addText(group, wrapText(circuit.conductor || "Conductor por definir", 16), x + 19, 395, { anchor: "start", className: "svg-tiny svg-bold", lineHeight: 15 });
+    drawBreaker(group, x - 3, 450, circuit.breaker || "P/D");
     group.appendChild(makeSvg("line", { x1: x, y1: 472, x2: x + 7, y2: 618, class: "svg-line" }));
 
-    const wider = index < 3;
+    const labelText = circuit.displayName || circuit.name || `Circuito ${index + 1}`;
+    const wider = labelText.length > 14 || labelText.includes("\n");
     const boxW = wider ? 150 : 118;
     const boxH = wider ? 58 : 34;
-    drawBox(group, x - boxW / 2 + 7, 618, boxW, boxH, circuit.displayName);
+    drawBox(group, x - boxW / 2 + 7, 618, boxW, boxH, labelText);
     group.appendChild(makeSvg("rect", { x: x - 72, y: 360, width: 158, height: 320, class: "branch-hotspot" }));
     group.addEventListener("click", () => {
       selectedCircuitId = circuit.id;
@@ -362,10 +389,215 @@ function renderLoadTotals() {
   totalCurrentA.textContent = formatTotal(totals.hasCurrent ? totals.current : null);
 }
 
+function quoteDsl(value) {
+  return `"${String(value || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " / " )}"`;
+}
+
+function attrsToText(attrs) {
+  return Object.entries(attrs)
+    .filter(([, value]) => String(value || "").trim())
+    .map(([key, value]) => `${key}=${quoteDsl(value)}`)
+    .join(" ");
+}
+
+function generateUnifilarScript(current = data) {
+  const lines = [
+    "# UnifilarScript v1",
+    "# Edite y presione Aplicar codigo para reconstruir el plano.",
+    `titulo ${quoteDsl(current.project.title)}`,
+    `acometida ${quoteDsl(current.service.label)}`,
+    `principal ${quoteDsl(current.service.mainBreaker)}`,
+    `alimentador ${quoteDsl(current.service.feeder)}`
+  ];
+  const systemAttrs = attrsToText({
+    tension: current.service.systemVoltage,
+    fases_tierra: current.service.phasesGrounding
+  });
+  if (systemAttrs) lines.push(`sistema ${systemAttrs}`);
+  const serviceAttrs = attrsToText({
+    longitud: current.service.feederLength,
+    conductor: current.service.conductorTypeInsulation,
+    canalizacion: current.service.conduitTypeDiameter,
+    aic_curva: current.service.mainBreakerAicCurve,
+    tablero: current.service.panelBusServiceData
+  });
+  if (serviceAttrs) lines.push(`acometida_datos ${serviceAttrs}`);
+  lines.push("");
+  current.circuits.forEach((circuit) => {
+    const schedule = circuit.loadSchedule || {};
+    const attrs = attrsToText({
+      interruptor: circuit.breaker,
+      conductor: circuit.conductor,
+      carga: circuit.load,
+      longitud: circuit.length,
+      conductor_aislamiento: circuit.conductorTypeInsulation,
+      canalizacion: circuit.conduitTypeDiameter,
+      aic_curva: circuit.breakerAicCurve,
+      tablero: circuit.panelBusServiceData,
+      fase: schedule.phase,
+      tipo: schedule.loadType,
+      va_instalado: schedule.installedVa,
+      va_demandado: schedule.demandedVa,
+      corriente: schedule.currentA,
+      fp: schedule.powerFactor,
+      notas: schedule.notes
+    });
+    lines.push(`circuito ${quoteDsl(circuit.displayName || circuit.name)} ${attrs}`.trim());
+  });
+  return `${lines.join("\n")}\n`;
+}
+
+function parseAttributes(text) {
+  const attrs = {};
+  const pattern = /([A-Za-z_][A-Za-z0-9_]*)=("(?:\\.|[^"])*"|[^\s]+)/g;
+  let match;
+  while ((match = pattern.exec(text))) {
+    attrs[match[1].toLowerCase()] = unquoteDsl(match[2]);
+  }
+  return attrs;
+}
+
+function unquoteDsl(value) {
+  const raw = String(value || "").trim();
+  if (raw.startsWith('"') && raw.endsWith('"')) {
+    return raw.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  }
+  return raw;
+}
+
+function firstQuotedText(text) {
+  const match = text.match(/"((?:\\.|[^"])*)"/);
+  return match ? unquoteDsl(`"${match[1]}"`) : "";
+}
+
+function attr(attrs, ...names) {
+  for (const name of names) {
+    const key = name.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(attrs, key)) return attrs[key];
+  }
+  return "";
+}
+
+function parseUnifilarScript(source) {
+  const next = clone(DEFAULT_DATA);
+  next.circuits = [];
+  const errors = [];
+  const lines = String(source || "").split(/\r?\n/);
+  lines.forEach((rawLine, index) => {
+    const lineNumber = index + 1;
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#") || line.startsWith("//")) return;
+    const commandMatch = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\b(.*)$/);
+    if (!commandMatch) {
+      errors.push(`Linea ${lineNumber}: instruccion no reconocida.`);
+      return;
+    }
+    const command = commandMatch[1].toLowerCase();
+    const rest = commandMatch[2].trim();
+    const attrs = parseAttributes(rest);
+    if (command === "titulo") {
+      next.project.title = firstQuotedText(rest) || attr(attrs, "valor", "texto") || next.project.title;
+      return;
+    }
+    if (command === "acometida") {
+      next.service.label = firstQuotedText(rest) || attr(attrs, "nombre", "label") || next.service.label;
+      return;
+    }
+    if (command === "principal") {
+      next.service.mainBreaker = firstQuotedText(rest) || attr(attrs, "interruptor", "valor") || next.service.mainBreaker;
+      return;
+    }
+    if (command === "alimentador") {
+      next.service.feeder = firstQuotedText(rest) || attr(attrs, "conductor", "valor") || next.service.feeder;
+      return;
+    }
+    if (command === "sistema") {
+      next.service.systemVoltage = attr(attrs, "tension", "voltaje", "voltage") || next.service.systemVoltage;
+      next.service.phasesGrounding = attr(attrs, "fases_tierra", "fases", "puesta_tierra", "tierra") || next.service.phasesGrounding;
+      return;
+    }
+    if (command === "acometida_datos" || command === "servicio") {
+      next.service.feederLength = attr(attrs, "longitud", "alimentador_longitud") || next.service.feederLength;
+      next.service.conductorTypeInsulation = attr(attrs, "conductor", "conductor_aislamiento", "aislamiento") || next.service.conductorTypeInsulation;
+      next.service.conduitTypeDiameter = attr(attrs, "canalizacion", "tuberia") || next.service.conduitTypeDiameter;
+      next.service.mainBreakerAicCurve = attr(attrs, "aic_curva", "aic", "curva") || next.service.mainBreakerAicCurve;
+      next.service.panelBusServiceData = attr(attrs, "tablero", "gabinete", "barras") || next.service.panelBusServiceData;
+      return;
+    }
+    if (command === "circuito") {
+      const name = firstQuotedText(rest) || attr(attrs, "nombre", "name");
+      if (!name) {
+        errors.push(`Linea ${lineNumber}: circuito requiere nombre entre comillas.`);
+        return;
+      }
+      const displayName = name.replace(/\s+\/\s+/g, "\n");
+      next.circuits.push(createCircuit({
+        id: `c${next.circuits.length + 1}`,
+        name: displayName.replace(/\n/g, " "),
+        displayName,
+        breaker: attr(attrs, "interruptor", "breaker", "proteccion"),
+        conductor: attr(attrs, "conductor", "conductores"),
+        load: attr(attrs, "carga", "load"),
+        length: attr(attrs, "longitud", "length"),
+        conductorTypeInsulation: attr(attrs, "conductor_aislamiento", "aislamiento"),
+        conduitTypeDiameter: attr(attrs, "canalizacion", "tuberia"),
+        breakerAicCurve: attr(attrs, "aic_curva", "aic", "curva"),
+        panelBusServiceData: attr(attrs, "tablero", "gabinete", "barras"),
+        loadSchedule: {
+          phase: attr(attrs, "fase", "phase"),
+          loadType: attr(attrs, "tipo", "tipo_carga"),
+          installedVa: attr(attrs, "va_instalado", "va", "instalado"),
+          demandedVa: attr(attrs, "va_demandado", "demandado"),
+          currentA: attr(attrs, "corriente", "a", "amp"),
+          powerFactor: attr(attrs, "fp", "factor_potencia"),
+          notes: attr(attrs, "notas", "observaciones")
+        },
+        status: "Dato capturado o por confirmar en campo"
+      }, next.circuits.length));
+      return;
+    }
+    errors.push(`Linea ${lineNumber}: comando '${command}' no soportado.`);
+  });
+  if (errors.length) throw new Error(errors.join("\n"));
+  if (!next.circuits.length) throw new Error("El codigo debe incluir al menos una linea circuito.");
+  return next;
+}
+
+function setDslStatus(message, mode = "") {
+  if (!dslStatus) return;
+  dslStatus.textContent = message;
+  dslStatus.className = `dsl-status ${mode}`.trim();
+}
+
+function syncDslEditor(force = false) {
+  if (!dslEditor) return;
+  if (!force && document.activeElement === dslEditor) return;
+  dslEditor.value = generateUnifilarScript(data);
+}
+
+function applyDslFromEditor() {
+  try {
+    data = parseUnifilarScript(dslEditor.value);
+    selectedCircuitId = data.circuits[0]?.id || null;
+    persist();
+    renderAll();
+    setDslStatus(`Plano reconstruido: ${data.circuits.length} circuito(s).`, "ok");
+  } catch (error) {
+    setDslStatus(error.message, "error");
+  }
+}
+
+function downloadDsl() {
+  const source = generateUnifilarScript(data);
+  downloadBlob(new Blob([source], { type: "text/plain;charset=utf-8" }), "diagrama.unifilar");
+  setDslStatus("Archivo .unifilar generado.", "ok");
+}
+
 function renderAll(rebuildEditor = true) {
   drawDiagram();
   renderSummary();
   renderLoadSchedule();
+  syncDslEditor(false);
   if (rebuildEditor) renderEditor();
 }
 
@@ -396,12 +628,20 @@ function bindTopLevelInputs() {
       renderAll(false);
     });
   });
+  document.getElementById("applyDslBtn").addEventListener("click", applyDslFromEditor);
+  document.getElementById("syncDslBtn").addEventListener("click", () => {
+    syncDslEditor(true);
+    setDslStatus("Codigo generado desde el formulario actual.", "ok");
+  });
+  document.getElementById("downloadDslBtn").addEventListener("click", downloadDsl);
   document.getElementById("saveBtn").addEventListener("click", persist);
   document.getElementById("resetBtn").addEventListener("click", () => {
     data = clone(DEFAULT_DATA);
     localStorage.removeItem(STORAGE_KEY);
     selectedCircuitId = data.circuits[0].id;
     renderAll();
+    syncDslEditor(true);
+    setDslStatus("Codigo restaurado desde valores base.", "ok");
     setStatus("Valores restaurados");
   });
   document.getElementById("svgBtn").addEventListener("click", downloadSvg);

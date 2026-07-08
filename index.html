@@ -87,6 +87,20 @@
           </label>
         </section>
 
+        <section class="editor-section code-section">
+          <h2>UnifilarScript</h2>
+          <label>
+            Codigo del plano
+            <textarea id="dslEditor" rows="14" spellcheck="false"></textarea>
+          </label>
+          <div class="code-actions">
+            <button id="applyDslBtn" type="button" title="Reconstruir el plano desde el codigo">Aplicar codigo</button>
+            <button id="syncDslBtn" type="button" title="Generar codigo desde los datos actuales">Generar codigo</button>
+            <button id="downloadDslBtn" type="button" title="Descargar archivo .unifilar">Descargar .unifilar</button>
+          </div>
+          <pre id="dslStatus" class="dsl-status">Listo para construir diagramas desde codigo.</pre>
+        </section>
+
         <section class="editor-section">
           <h2>Circuitos</h2>
           <div id="circuitList" class="circuit-list"></div>

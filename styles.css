@@ -372,3 +372,49 @@ th {
   background: #eef2ec;
   font-weight: 700;
 }
+
+.code-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.code-actions button {
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+#dslEditor {
+  min-height: 260px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.dsl-status {
+  min-height: 42px;
+  margin: 0;
+  padding: 9px 10px;
+  white-space: pre-wrap;
+  color: var(--muted);
+  background: #f4f6f1;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.dsl-status.error {
+  color: #8a2f16;
+  background: #fff2ec;
+  border-color: #e5b29f;
+}
+
+.dsl-status.ok {
+  color: #175b39;
+  background: #edf7ef;
+  border-color: #9fd2ad;
+}
