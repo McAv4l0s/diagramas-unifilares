@@ -581,17 +581,38 @@ function downloadPdf(current, mode = "simple") {
 
 function App() {
   const [data, setData] = useState(() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(DEFAULT_DATA); } catch { return clone(DEFAULT_DATA); } });
+  const [history, setHistory] = useState([]);
   const [active, setActive] = useState("project");
   const [script, setScript] = useState(() => generateScript(data));
   const [status, setStatus] = useState("Listo");
   const generatedScript = useMemo(() => generateScript(data), [data]);
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(data)), [data]);
   useEffect(() => setScript(generatedScript), [generatedScript]);
-  const applyScript = () => { try { const parsed = parseScript(script); setData(parsed); setStatus(`Plano reconstruido: ${parsed.circuits.length} circuito(s).`); } catch (e) { setStatus(e.message); } };
+  const commitData = updater => {
+    setData(previous => {
+      const next = typeof updater === "function" ? updater(previous) : updater;
+      if (JSON.stringify(previous) === JSON.stringify(next)) return previous;
+      setHistory(items => [...items.slice(-49), clone(previous)]);
+      return next;
+    });
+  };
+  const undoLastChange = () => {
+    setHistory(items => {
+      if (!items.length) {
+        setStatus("No hay cambios para deshacer.");
+        return items;
+      }
+      const previous = items[items.length - 1];
+      setData(previous);
+      setStatus("Ultimo cambio deshecho.");
+      return items.slice(0, -1);
+    });
+  };
+  const applyScript = () => { try { const parsed = parseScript(script); commitData(parsed); setStatus(`Plano reconstruido: ${parsed.circuits.length} circuito(s).`); } catch (e) { setStatus(e.message); } };
   const syncScript = () => { setScript(generatedScript); setStatus("Codigo sincronizado desde formulario."); };
-  const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData }) : active === "loads" ? h(LoadSchedule, { data, setData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData });
+  const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData: commitData }) : active === "loads" ? h(LoadSchedule, { data, setData: commitData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData: commitData });
   return h("div", { className: "app-shell" },
-    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: () => window.print() }, "Imprimir"), h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF simplificado"), h("button", { onClick: () => downloadPdf(data, "complete") }, "PDF completo"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); setData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); setData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
+    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: undoLastChange, disabled: !history.length, title: "Deshacer ultimo cambio" }, "Deshacer"), h("button", { onClick: () => window.print() }, "Imprimir"), h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF simplificado"), h("button", { onClick: () => downloadPdf(data, "complete") }, "PDF completo"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: () => { localStorage.removeItem(STORAGE_KEY); commitData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); } }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); commitData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
     h("div", { className: "main-grid" },
       h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => setActive(id) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
       h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))
