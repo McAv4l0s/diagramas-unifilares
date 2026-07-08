@@ -34,3 +34,11 @@ circuito "Aire / acondicionado" interruptor="2x50" conductor="2 cal.8, 1 cal. 8 
 ```
 
 Comandos soportados: `titulo`, `acometida`, `principal`, `alimentador`, `sistema`, `acometida_datos` y `circuito`. Cada linea `circuito` reconstruye una derivacion; por lo tanto, el numero de circuitos del plano cambia segun el codigo capturado tras el estudio en campo.
+
+## Version React
+
+La interfaz fue migrada a React y organiza la captura en secciones: proyecto, acometida, sistema electrico, tablero, puesta a tierra, seguridad STPS, circuitos, cuadro de cargas y UnifilarScript.
+
+El formulario genera automaticamente `UnifilarScript v2`, un lenguaje textual propio para reconstruir diagramas unifilares a partir del levantamiento en campo. La app no ejecuta calculos normativos automaticos; conserva campos de captura y leyendas de verificacion para evitar datos inventados.
+
+Campos considerados para revision/captura: tension, fases, hilos, frecuencia, sistema de puesta a tierra, acometida, medicion, interruptor principal, capacidad interruptiva, alimentador, tipo de conductor, aislamiento, canalizacion, tablero, barras, gabinete, circuitos derivados, protecciones, conductores de fase/neutro/tierra, longitudes, cargas, cuadro de cargas, EPP, bloqueo/etiquetado, rotulado y notas de riesgo.
