@@ -225,33 +225,77 @@ function numeric(value) { const n = Number(safe(value).replace(/,/g, "")); retur
 function total(circuits, field) { let sum = 0, ok = false; circuits.forEach(c => { const n = numeric(c.loadSchedule[field]); if (n !== null) { sum += n; ok = true; }}); return ok ? sum.toLocaleString("es-MX", { maximumFractionDigits: 2 }) : "Por definir"; }
 function q(value) { return `"${safe(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " / ")}"`; }
 function attrs(obj) { return Object.entries(obj).filter(([,v]) => safe(v).trim()).map(([k,v]) => `${k}=${q(v)}`).join(" "); }
+function mappedAttrs(source, pairs) { return attrs(Object.fromEntries(pairs.map(([field, key]) => [key, source?.[field]]))); }
+
+const scriptMaps = {
+  project: [
+    ["projectName", "nombre"], ["location", "ubicacion"], ["date", "fecha"],
+    ["preparedBy", "elaboro"], ["reviewedBy", "reviso"], ["drawingNumber", "plano"],
+    ["revision", "revision"], ["standards", "normas"], ["notes", "notas"]
+  ],
+  serviceData: [
+    ["panelBusServiceData", "datos_acometida_tablero"]
+  ],
+  system: [
+    ["voltage", "tension"], ["phases", "fases"], ["wires", "hilos"],
+    ["frequency", "frecuencia"], ["groundingSystem", "tierra"],
+    ["availableShortCircuit", "cortocircuito"], ["demandFactor", "factor_demanda"],
+    ["powerFactor", "factor_potencia"], ["maxDemand", "demanda_maxima", "demanda"]
+  ],
+  panel: [
+    ["id", "id"], ["location", "ubicacion"], ["voltage", "tension"],
+    ["phases", "fases"], ["busAmps", "barras_amp", "barras"],
+    ["busMaterial", "material_barras", "material"], ["bars", "numero_barras"],
+    ["enclosure", "gabinete"], ["mounting", "montaje"], ["nema", "nema"],
+    ["interruptingRating", "capacidad_interruptiva", "interruptiva"],
+    ["mainDevice", "dispositivo_principal"], ["neutralBar", "barra_neutro"],
+    ["groundBar", "barra_tierra"]
+  ],
+  grounding: [
+    ["electrode", "electrodo"], ["groundingConductor", "conductor_tierra", "groundingconductor"],
+    ["bonding", "union_equipotencial"], ["resistance", "resistencia"],
+    ["notes", "notas"]
+  ],
+  stps: [
+    ["workRisk", "riesgo_trabajo", "workrisk"], ["loto", "loto"], ["ppe", "ppe", "epp"],
+    ["arcFlashLabel", "rotulado_arc_flash", "arcflashlabel"], ["fireRiskArea", "riesgo_incendio", "fireriskarea"],
+    ["emergencyNotes", "notas_emergencia", "emergencynotes"]
+  ],
+  circuit: [
+    ["origin", "origen"], ["destination", "destino"], ["breaker", "interruptor"],
+    ["poles", "polos"], ["amps", "amperes"], ["breakerType", "tipo_interruptor"],
+    ["breakerAicCurve", "aic_curva"], ["conductor", "conductor"],
+    ["phaseConductor", "fase_conductor"], ["neutralConductor", "neutro"],
+    ["groundConductor", "tierra"], ["material", "material"], ["insulation", "aislamiento"],
+    ["conductorTypeInsulation", "conductor_aislamiento"],
+    ["conduitTypeDiameter", "canalizacion"], ["conduitMaterial", "conduit_material"],
+    ["conduitFill", "llenado_canalizacion"], ["length", "longitud"],
+    ["load", "carga"], ["voltageDrop", "caida_tension"], ["status", "estatus"]
+  ],
+  load: [
+    ["phase", "fase"], ["loadType", "tipo_carga"], ["installedVa", "va_instalado"],
+    ["demandedVa", "va_demandado"], ["currentA", "corriente"],
+    ["powerFactor", "fp"], ["notes", "observaciones"]
+  ]
+};
 
 function generateScript(data) {
   const lines = [
     "# UnifilarScript v2 - generado desde formulario React",
     `titulo ${q(data.project.title)}`,
-    `proyecto ${attrs({ nombre: data.project.projectName, ubicacion: data.project.location, fecha: data.project.date, elaboro: data.project.preparedBy, revision: data.project.revision })}`,
+    `proyecto ${mappedAttrs(data.project, scriptMaps.project)}`,
     `acometida ${q(data.service.label)} ${attrs({ compania: data.service.utility, tipo: data.service.serviceType, medicion: data.service.meter })}`,
     `principal ${q(data.service.mainBreaker)} ${attrs({ polos: data.service.mainBreakerPoles, amperes: data.service.mainBreakerAmps, aic_curva: data.service.mainBreakerAicCurve })}`,
     `alimentador ${q(data.service.feeder)} ${attrs({ longitud: data.service.feederLength, conductor_aislamiento: data.service.conductorTypeInsulation, canalizacion: data.service.conduitTypeDiameter })}`,
-    `sistema ${attrs({ tension: data.system.voltage, fases: data.system.phases, hilos: data.system.wires, frecuencia: data.system.frequency, tierra: data.system.groundingSystem, cortocircuito: data.system.availableShortCircuit, demanda: data.system.maxDemand })}`,
-    `tablero ${q(data.panel.name)} ${attrs({ id: data.panel.id, ubicacion: data.panel.location, barras: data.panel.busAmps, material: data.panel.busMaterial, gabinete: data.panel.enclosure, nema: data.panel.nema, montaje: data.panel.mounting, interruptiva: data.panel.interruptingRating })}`,
-    `puesta_tierra ${attrs(data.grounding)}`,
-    `stps ${attrs(data.stps)}`,
+    `acometida_datos ${mappedAttrs(data.service, scriptMaps.serviceData)}`,
+    `sistema ${mappedAttrs(data.system, scriptMaps.system)}`,
+    `tablero ${q(data.panel.name)} ${mappedAttrs(data.panel, scriptMaps.panel)}`,
+    `puesta_tierra ${mappedAttrs(data.grounding, scriptMaps.grounding)}`,
+    `stps ${mappedAttrs(data.stps, scriptMaps.stps)}`,
     ""
   ];
   data.circuits.forEach((c, index) => {
-    lines.push(`circuito ${q(c.displayName || c.name)} ${attrs({
-      no: index + 1, origen: c.origin, destino: c.destination, interruptor: c.breaker, polos: c.poles,
-      amperes: c.amps, tipo_interruptor: c.breakerType, aic_curva: c.breakerAicCurve,
-      conductor: c.conductor, fase_conductor: c.phaseConductor, neutro: c.neutralConductor,
-      tierra: c.groundConductor, material: c.material, aislamiento: c.insulation,
-      canalizacion: c.conduitTypeDiameter, conduit_material: c.conduitMaterial, longitud: c.length,
-      carga: c.load, caida_tension: c.voltageDrop, fase: c.loadSchedule.phase,
-      tipo_carga: c.loadSchedule.loadType, va_instalado: c.loadSchedule.installedVa,
-      va_demandado: c.loadSchedule.demandedVa, corriente: c.loadSchedule.currentA,
-      fp: c.loadSchedule.powerFactor, observaciones: c.loadSchedule.notes
-    })}`);
+    lines.push(`circuito ${q(c.displayName || c.name)} ${attrs({ no: index + 1 })} ${mappedAttrs(c, scriptMaps.circuit)} ${mappedAttrs(c.loadSchedule, scriptMaps.load)}`);
   });
   return `${lines.join("\n")}\n`;
 }
@@ -269,8 +313,11 @@ function parseAttrs(text) {
 }
 function firstQuoted(text) { const m = text.match(/"((?:\\.|[^"])*)"/); return m ? unquote(`"${m[1]}"`) : ""; }
 function pick(a, ...keys) { for (const k of keys) if (a[k] !== undefined) return a[k]; return ""; }
+function assignMapped(target, at, pairs) {
+  pairs.forEach(([field, key, ...aliases]) => { target[field] = pick(at, key, ...aliases); });
+}
 function parseScript(source) {
-  const next = clone(DEFAULT_DATA); next.circuits = [];
+  const next = emptyData();
   const errors = [];
   safe(source).split(/\r?\n/).forEach((raw, i) => {
     const line = raw.trim(); if (!line || line.startsWith("#") || line.startsWith("//")) return;
@@ -278,15 +325,24 @@ function parseScript(source) {
     if (!cmdRaw) { errors.push(`Linea ${i + 1}: instruccion no reconocida.`); return; }
     const cmd = cmdRaw.toLowerCase(), at = parseAttrs(rest), quoted = firstQuoted(rest);
     if (cmd === "titulo") next.project.title = quoted || next.project.title;
-    else if (cmd === "proyecto") Object.assign(next.project, { projectName: pick(at,"nombre"), location: pick(at,"ubicacion"), date: pick(at,"fecha"), preparedBy: pick(at,"elaboro"), revision: pick(at,"revision") });
+    else if (cmd === "proyecto") assignMapped(next.project, at, scriptMaps.project);
     else if (cmd === "acometida") Object.assign(next.service, { label: quoted || next.service.label, utility: pick(at,"compania"), serviceType: pick(at,"tipo"), meter: pick(at,"medicion") });
     else if (cmd === "principal") Object.assign(next.service, { mainBreaker: quoted || next.service.mainBreaker, mainBreakerPoles: pick(at,"polos"), mainBreakerAmps: pick(at,"amperes"), mainBreakerAicCurve: pick(at,"aic_curva") });
     else if (cmd === "alimentador") Object.assign(next.service, { feeder: quoted || next.service.feeder, feederLength: pick(at,"longitud"), conductorTypeInsulation: pick(at,"conductor_aislamiento"), conduitTypeDiameter: pick(at,"canalizacion") });
-    else if (cmd === "sistema") Object.assign(next.system, { voltage: pick(at,"tension"), phases: pick(at,"fases"), wires: pick(at,"hilos"), frequency: pick(at,"frecuencia"), groundingSystem: pick(at,"tierra"), availableShortCircuit: pick(at,"cortocircuito"), maxDemand: pick(at,"demanda") });
-    else if (cmd === "tablero") Object.assign(next.panel, { name: quoted || next.panel.name, id: pick(at,"id"), location: pick(at,"ubicacion"), busAmps: pick(at,"barras"), busMaterial: pick(at,"material"), enclosure: pick(at,"gabinete"), nema: pick(at,"nema"), mounting: pick(at,"montaje"), interruptingRating: pick(at,"interruptiva") });
-    else if (cmd === "puesta_tierra") Object.assign(next.grounding, at);
-    else if (cmd === "stps") Object.assign(next.stps, at);
-    else if (cmd === "circuito") next.circuits.push({ ...circuit(quoted || `Circuito ${next.circuits.length + 1}`, pick(at,"interruptor"), pick(at,"conductor")), origin: pick(at,"origen"), destination: pick(at,"destino") || quoted, poles: pick(at,"polos"), amps: pick(at,"amperes"), breakerType: pick(at,"tipo_interruptor"), breakerAicCurve: pick(at,"aic_curva"), phaseConductor: pick(at,"fase_conductor"), neutralConductor: pick(at,"neutro"), groundConductor: pick(at,"tierra"), material: pick(at,"material"), insulation: pick(at,"aislamiento"), conduitTypeDiameter: pick(at,"canalizacion"), conduitMaterial: pick(at,"conduit_material"), length: pick(at,"longitud"), load: pick(at,"carga"), voltageDrop: pick(at,"caida_tension"), loadSchedule: { phase: pick(at,"fase"), loadType: pick(at,"tipo_carga"), installedVa: pick(at,"va_instalado"), demandedVa: pick(at,"va_demandado"), currentA: pick(at,"corriente"), powerFactor: pick(at,"fp"), notes: pick(at,"observaciones") } });
+    else if (cmd === "acometida_datos") assignMapped(next.service, at, scriptMaps.serviceData);
+    else if (cmd === "sistema") assignMapped(next.system, at, scriptMaps.system);
+    else if (cmd === "tablero") { next.panel.name = quoted || next.panel.name; assignMapped(next.panel, at, scriptMaps.panel); }
+    else if (cmd === "puesta_tierra") assignMapped(next.grounding, at, scriptMaps.grounding);
+    else if (cmd === "stps") assignMapped(next.stps, at, scriptMaps.stps);
+    else if (cmd === "circuito") {
+      const nextCircuit = circuit(quoted || `Circuito ${next.circuits.length + 1}`, pick(at,"interruptor"), pick(at,"conductor"));
+      assignMapped(nextCircuit, at, scriptMaps.circuit);
+      assignMapped(nextCircuit.loadSchedule, at, scriptMaps.load);
+      nextCircuit.name = quoted || nextCircuit.name;
+      nextCircuit.displayName = quoted || nextCircuit.displayName;
+      nextCircuit.destination = nextCircuit.destination || quoted;
+      next.circuits.push(nextCircuit);
+    }
     else errors.push(`Linea ${i + 1}: comando '${cmd}' no soportado.`);
   });
   if (errors.length) throw new Error(errors.join("\n"));
