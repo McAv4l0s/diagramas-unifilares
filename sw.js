@@ -1,5 +1,5 @@
-const CACHE_NAME = "unifilar-mobile-react-blue-11";
-const ASSETS = ["./", "./index.html", "./styles.css?v=react-blue-11", "./app.js?v=react-blue-11", "./manifest.webmanifest?v=react-blue-11", "./icon.svg"];
+const CACHE_NAME = "unifilar-mobile-react-blue-12";
+const ASSETS = ["./", "./index.html", "./styles.css?v=react-blue-12", "./app.js?v=react-blue-12", "./manifest.webmanifest?v=react-blue-12", "./icon.svg"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

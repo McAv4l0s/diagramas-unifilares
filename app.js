@@ -556,7 +556,7 @@ function MobileSchematic({ data, actions, canUndo }) {
       h("button", { onClick: actions.undo, disabled: !canUndo }, "Deshacer"),
       h("button", { onClick: actions.print }, "Imprimir"),
       h("button", { onClick: actions.pdfSimple }, "PDF"),
-      h("button", { onClick: actions.exportScript }, "Script"),
+      h("button", { onClick: actions.exportScript }, "PDF script"),
       h("button", { onClick: actions.restore }, "Restaurar")
     ),
     h("div", { className: "mobile-summary" },
@@ -602,12 +602,10 @@ function MobileSchematic({ data, actions, canUndo }) {
 
 function ScriptPanel({ script, setScript, apply, sync, download }) {
   return h("section", { className: "panel script-panel" },
-    h("div", { className: "section-title-row" }, h("h2", null, "UnifilarScript"), h("div", { className: "button-row" }, h("button", { onClick: sync }, "Sincronizar"), h("button", { onClick: apply }, "Aplicar codigo"), h("button", { onClick: download }, "Descargar .unifilar"))),
+    h("div", { className: "section-title-row" }, h("h2", null, "UnifilarScript"), h("div", { className: "button-row" }, h("button", { onClick: sync }, "Sincronizar"), h("button", { onClick: apply }, "Aplicar codigo"), h("button", { onClick: download }, "Descargar PDF"))),
     h("textarea", { className: "script-editor", value: script, onChange: e => setScript(e.target.value), spellCheck: false })
   );
 }
-
-function downloadText(name, text, type="text/plain") { const url = URL.createObjectURL(new Blob([text], { type })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); }
 
 function pdfSafe(value) {
   return safe(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
@@ -794,6 +792,18 @@ function downloadPdf(current, mode = "simple") {
   a.click();
   URL.revokeObjectURL(url);
 }
+function buildPdfFromScript(source, mode = "complete") {
+  return buildPdfDocument(parseScript(source), mode);
+}
+function downloadPdfFromScript(source, mode = "complete") {
+  const pdf = buildPdfFromScript(source, mode);
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = mode === "complete" ? "diagrama-unifilar-desde-script-completo.pdf" : "diagrama-unifilar-desde-script-simplificado.pdf";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function App() {
   const [state, dispatch] = useReducer(appReducer, null, createInitialState);
@@ -807,8 +817,22 @@ function App() {
     print: () => { window.print(); dispatch({ type: "status/set", status: "Vista enviada a impresion." }); },
     pdfSimple: () => { downloadPdf(data, "simple"); dispatch({ type: "status/set", status: "PDF simplificado generado: esquema y datos principales, sin cuadro de cargas." }); },
     pdfComplete: () => { downloadPdf(data, "complete"); dispatch({ type: "status/set", status: "PDF completo generado: resumen, normas, cuadro de cargas y datos completos." }); },
-    exportScript: () => { downloadText("diagrama.unifilar", generatedScript); dispatch({ type: "status/set", status: "UnifilarScript exportado desde el formulario actual." }); },
-    downloadEditedScript: () => { downloadText("diagrama.unifilar", script); dispatch({ type: "status/set", status: "UnifilarScript descargado desde el editor." }); },
+    exportScript: () => {
+      try {
+        downloadPdfFromScript(generatedScript, "complete");
+        dispatch({ type: "status/set", status: "PDF completo generado desde UnifilarScript del formulario." });
+      } catch (e) {
+        dispatch({ type: "status/set", status: e.message });
+      }
+    },
+    downloadEditedScript: () => {
+      try {
+        downloadPdfFromScript(script, "complete");
+        dispatch({ type: "status/set", status: "PDF completo generado desde el UnifilarScript editado." });
+      } catch (e) {
+        dispatch({ type: "status/set", status: e.message });
+      }
+    },
     restore: () => dispatch({ type: "data/restore" }),
     clear: () => {
       if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) dispatch({ type: "data/clear" });
@@ -821,7 +845,7 @@ function App() {
   };
   const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData: commitData }) : active === "loads" ? h(LoadSchedule, { data, setData: commitData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: actions.applyScript, sync: actions.syncScript, download: actions.downloadEditedScript }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData: commitData });
   return h("div", { className: "app-shell" },
-    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: actions.undo, disabled: !history.length, title: "Deshacer ultimo cambio" }, "Deshacer"), h("button", { onClick: actions.print }, "Imprimir"), h("button", { onClick: actions.pdfSimple }, "PDF simplificado"), h("button", { onClick: actions.pdfComplete }, "PDF completo"), h("button", { onClick: actions.exportScript }, "Exportar script"), h("button", { onClick: actions.restore }, "Restaurar"), h("button", { className: "danger-button", onClick: actions.clear }, "Borrar todo"))),
+    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: actions.undo, disabled: !history.length, title: "Deshacer ultimo cambio" }, "Deshacer"), h("button", { onClick: actions.print }, "Imprimir"), h("button", { onClick: actions.pdfSimple }, "PDF simplificado"), h("button", { onClick: actions.pdfComplete }, "PDF completo"), h("button", { onClick: actions.exportScript }, "PDF desde script"), h("button", { onClick: actions.restore }, "Restaurar"), h("button", { className: "danger-button", onClick: actions.clear }, "Borrar todo"))),
     h(MobileSchematic, { data, actions, canUndo: !!history.length }),
     h("div", { className: "main-grid desktop-layout" },
       h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => dispatch({ type: "nav/set", active: id }) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),

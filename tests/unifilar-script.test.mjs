@@ -8,11 +8,11 @@ function loadScriptApi() {
     .replace(/^import.*$/gm, "")
     .replace(/^const h = React\.createElement;$/m, "const h = () => null;");
   source = source.slice(0, source.indexOf("\ncreateRoot("));
-  source += "\nreturn { DEFAULT_DATA, emptyData, generateScript, parseScript, buildPdfDocument, appReducer };";
+  source += "\nreturn { DEFAULT_DATA, emptyData, generateScript, parseScript, buildPdfDocument, buildPdfFromScript, appReducer };";
   return Function(source)();
 }
 
-const { DEFAULT_DATA, emptyData, generateScript, parseScript, buildPdfDocument, appReducer } = loadScriptApi();
+const { DEFAULT_DATA, emptyData, generateScript, parseScript, buildPdfDocument, buildPdfFromScript, appReducer } = loadScriptApi();
 const pdfText = bytes => new TextDecoder().decode(bytes);
 
 test("generated UnifilarScript preserves complete captured data", () => {
@@ -86,6 +86,15 @@ test("complete PDF includes load schedule and Mexican normative summary", () => 
   assert.match(text, /NOM-002-STPS-2010/);
   assert.match(text, /NOM-029-STPS-2011/);
   assert.match(text, /Total VA instalado/);
+});
+
+test("UnifilarScript download path builds a PDF instead of text output", () => {
+  const script = generateScript(DEFAULT_DATA);
+  const text = pdfText(buildPdfFromScript(script, "complete"));
+
+  assert.match(text, /^%PDF-1\.4/);
+  assert.match(text, /Resumen tecnico y marco normativo mexicano/);
+  assert.match(text, /Circuitos y cuadro general de cargas/);
 });
 
 test("redux-style reducer centralizes button state actions", () => {
