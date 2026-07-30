@@ -6,13 +6,14 @@ function loadScriptApi() {
   let source = readFileSync(new URL("../app.js", import.meta.url), "utf8");
   source = source
     .replace(/^import.*$/gm, "")
-    .replace(/^const h = React\.createElement;$/m, "");
-  source = source.slice(0, source.indexOf("\nfunction Field"));
-  source += "\nreturn { DEFAULT_DATA, emptyData, generateScript, parseScript };";
+    .replace(/^const h = React\.createElement;$/m, "const h = () => null;");
+  source = source.slice(0, source.indexOf("\ncreateRoot("));
+  source += "\nreturn { DEFAULT_DATA, emptyData, generateScript, parseScript, buildPdfDocument, appReducer };";
   return Function(source)();
 }
 
-const { DEFAULT_DATA, emptyData, generateScript, parseScript } = loadScriptApi();
+const { DEFAULT_DATA, emptyData, generateScript, parseScript, buildPdfDocument, appReducer } = loadScriptApi();
+const pdfText = bytes => new TextDecoder().decode(bytes);
 
 test("generated UnifilarScript preserves complete captured data", () => {
   const generated = generateScript(DEFAULT_DATA);
@@ -65,4 +66,36 @@ circuito "C1" interruptor="1x20 A" conductor="2 cal.12" fase="L1-N" va_instalado
   assert.equal(parsed.grounding.groundingConductor, "cal.12 Cu");
   assert.equal(parsed.stps.workRisk, "medio");
   assert.equal(parsed.stps.arcFlashLabel, "pendiente");
+});
+
+test("simplified PDF is schematic-only without load schedule", () => {
+  const text = pdfText(buildPdfDocument(DEFAULT_DATA, "simple"));
+
+  assert.match(text, /Diagrama unifilar simplificado/);
+  assert.doesNotMatch(text, /Circuitos y cuadro general de cargas/);
+  assert.doesNotMatch(text, /VA instalado/);
+  assert.doesNotMatch(text, /NOM-002-STPS-2010/);
+});
+
+test("complete PDF includes load schedule and Mexican normative summary", () => {
+  const text = pdfText(buildPdfDocument(DEFAULT_DATA, "complete"));
+
+  assert.match(text, /Resumen tecnico y marco normativo mexicano/);
+  assert.match(text, /Circuitos y cuadro general de cargas/);
+  assert.match(text, /NOM-001-SEDE-2012/);
+  assert.match(text, /NOM-002-STPS-2010/);
+  assert.match(text, /NOM-029-STPS-2011/);
+  assert.match(text, /Total VA instalado/);
+});
+
+test("redux-style reducer centralizes button state actions", () => {
+  const initial = { data: emptyData(), history: [], active: "project", script: "", scriptDirty: false, status: "Listo" };
+  const edited = appReducer(initial, { type: "data/commit", updater: data => ({ ...data, project: { ...data.project, projectName: "Proyecto X" } }) });
+  const scripted = appReducer(edited, { type: "script/edit", value: "titulo \"Manual\"" });
+  const restored = appReducer(scripted, { type: "history/undo" });
+
+  assert.equal(edited.data.project.projectName, "Proyecto X");
+  assert.equal(edited.history.length, 1);
+  assert.equal(scripted.scriptDirty, true);
+  assert.equal(restored.data.project.projectName, "");
 });

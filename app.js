@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "https://esm.sh/react@18.3.1";
+import React, { useEffect, useMemo, useReducer } from "https://esm.sh/react@18.3.1";
 import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
 
 const h = React.createElement;
@@ -223,6 +223,12 @@ function safe(value) { return String(value ?? ""); }
 function valueOrPending(value) { return safe(value).trim() || "Por definir"; }
 function numeric(value) { const n = Number(safe(value).replace(/,/g, "")); return Number.isFinite(n) && safe(value).trim() ? n : null; }
 function total(circuits, field) { let sum = 0, ok = false; circuits.forEach(c => { const n = numeric(c.loadSchedule[field]); if (n !== null) { sum += n; ok = true; }}); return ok ? sum.toLocaleString("es-MX", { maximumFractionDigits: 2 }) : "Por definir"; }
+const mexicanElectricalNorms = [
+  ["NOM-001-SEDE-2012", "Instalaciones electricas (utilizacion). Base tecnica para conductores, protecciones, canalizaciones, tableros, puesta a tierra y uso seguro de la instalacion."],
+  ["NOM-029-STPS-2011", "Operacion y mantenimiento de instalaciones electricas en centros de trabajo. Requiere diagrama unifilar actualizado y cuadro general de cargas para personal de operacion y mantenimiento."],
+  ["NOM-002-STPS-2010", "Prevencion y proteccion contra incendios en centros de trabajo. Relaciona croquis, rutas, equipos contra incendio, instrucciones de seguridad y control de fuentes de ignicion."],
+  ["Normas STPS relacionadas", "NOM-017-STPS para EPP, NOM-022-STPS para electricidad estatica y NOM-026-STPS para colores/senales de seguridad, cuando apliquen al centro de trabajo."]
+];
 function q(value) { return `"${safe(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " / ")}"`; }
 function attrs(obj) { return Object.entries(obj).filter(([,v]) => safe(v).trim()).map(([k,v]) => `${k}=${q(v)}`).join(" "); }
 function mappedAttrs(source, pairs) { return attrs(Object.fromEntries(pairs.map(([field, key]) => [key, source?.[field]]))); }
@@ -348,6 +354,60 @@ function parseScript(source) {
   if (errors.length) throw new Error(errors.join("\n"));
   if (!next.circuits.length) throw new Error("Agregue al menos una linea circuito.");
   return next;
+}
+
+function loadInitialData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(DEFAULT_DATA); }
+  catch { return clone(DEFAULT_DATA); }
+}
+function createInitialState() {
+  const data = loadInitialData();
+  return { data, history: [], active: "project", script: generateScript(data), scriptDirty: false, status: "Listo" };
+}
+function withDataChange(state, nextData, status = "Datos actualizados.") {
+  if (JSON.stringify(state.data) === JSON.stringify(nextData)) return state;
+  return {
+    ...state,
+    data: nextData,
+    history: [...state.history.slice(-49), clone(state.data)],
+    script: state.scriptDirty ? state.script : generateScript(nextData),
+    status
+  };
+}
+function appReducer(state, action) {
+  switch (action.type) {
+    case "nav/set":
+      return { ...state, active: action.active };
+    case "data/commit": {
+      const nextData = typeof action.updater === "function" ? action.updater(state.data) : action.updater;
+      return withDataChange(state, nextData, action.status);
+    }
+    case "data/restore":
+      return withDataChange(state, clone(DEFAULT_DATA), "Datos de ejemplo restaurados.");
+    case "data/clear":
+      return withDataChange(state, emptyData(), "Todos los campos fueron borrados.");
+    case "history/undo": {
+      if (!state.history.length) return { ...state, status: "No hay cambios para deshacer." };
+      const previous = state.history[state.history.length - 1];
+      return {
+        ...state,
+        data: previous,
+        history: state.history.slice(0, -1),
+        script: state.scriptDirty ? state.script : generateScript(previous),
+        status: "Ultimo cambio deshecho."
+      };
+    }
+    case "script/edit":
+      return { ...state, script: action.value, scriptDirty: true, status: "Codigo editado manualmente." };
+    case "script/sync":
+      return { ...state, script: action.value, scriptDirty: false, status: "Codigo sincronizado desde formulario." };
+    case "script/apply":
+      return withDataChange({ ...state, scriptDirty: false }, action.data, `Plano reconstruido: ${action.data.circuits.length} circuito(s).`);
+    case "status/set":
+      return { ...state, status: action.status };
+    default:
+      return state;
+  }
 }
 
 function Field({ value, onChange, label, type = "text" }) {
@@ -477,7 +537,7 @@ function Diagram({ data }) {
 }
 
 
-function MobileSchematic({ data, generatedScript, undo, canUndo, restore }) {
+function MobileSchematic({ data, actions, canUndo }) {
   const circuits = data.circuits || [];
   const width = 390;
   const row = 86;
@@ -493,11 +553,11 @@ function MobileSchematic({ data, generatedScript, undo, canUndo, restore }) {
       h("div", { className: "mobile-badge" }, `${circuits.length} circuitos`)
     ),
     h("div", { className: "mobile-actions" },
-      h("button", { onClick: undo, disabled: !canUndo }, "Deshacer"),
-      h("button", { onClick: () => window.print() }, "Imprimir"),
-      h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF"),
-      h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Script"),
-      h("button", { onClick: restore }, "Restaurar")
+      h("button", { onClick: actions.undo, disabled: !canUndo }, "Deshacer"),
+      h("button", { onClick: actions.print }, "Imprimir"),
+      h("button", { onClick: actions.pdfSimple }, "PDF"),
+      h("button", { onClick: actions.exportScript }, "Script"),
+      h("button", { onClick: actions.restore }, "Restaurar")
     ),
     h("div", { className: "mobile-summary" },
       h("div", null, h("span", null, "Tension"), h("strong", null, valueOrPending(data.system.voltage))),
@@ -603,30 +663,8 @@ function buildPdfDocument(current, mode = "simple") {
     text(p1, `${i + 1}`, x - 3, 332, 6, "F2");
   });
   text(p1, circuits.length < current.circuits.length ? `Se muestran 10 de ${current.circuits.length} circuitos.` : `Circuitos: ${current.circuits.length}`, 470, 300, 7);
-  text(p1, "Notas: PDF generado desde captura. No sustituye memoria de calculo ni validacion profesional.", 42, 42, 7);
+  text(p1, mode === "complete" ? "Notas: resumen completo con cuadro de cargas y marco normativo en paginas siguientes." : "Notas: esquema simplificado sin cuadro de cargas. No sustituye memoria de calculo ni validacion profesional.", 42, 42, 7);
   pages.push(p1);
-
-  const p2 = makePage();
-  p2.push("0.6 w");
-  text(p2, "Circuitos y cuadro de cargas", 42, 570, 16, "F2");
-  const cols = [34, 108, 58, 105, 48, 54, 54, 48, 44, 165];
-  const headers = ["No", "Circuito", "Interruptor", "Conductores", "Fase", "VA inst", "VA dem", "A", "FP", "Observaciones"];
-  let x = 36; y = 542;
-  headers.forEach((header, i) => { cell(p2, header, x, y, cols[i], 20, 6, "F2"); x += cols[i]; });
-  y -= 20;
-  current.circuits.slice(0, 18).forEach((c, index) => {
-    x = 36;
-    const load = c.loadSchedule || {};
-    [index + 1, c.displayName || c.name, c.breaker, c.conductor, load.phase, load.installedVa, load.demandedVa, load.currentA, load.powerFactor, load.notes]
-      .forEach((value, i) => { cell(p2, value, x, y, cols[i], 24, 5.7); x += cols[i]; });
-    y -= 24;
-  });
-  text(p2, `Total VA instalado: ${total(current.circuits, "installedVa")}`, 42, 78, 8, "F2");
-  text(p2, `Total VA demandado: ${total(current.circuits, "demandedVa")}`, 220, 78, 8, "F2");
-  text(p2, `Total corriente A: ${total(current.circuits, "currentA")}`, 410, 78, 8, "F2");
-  text(p2, "Totales por suma simple de valores capturados.", 42, 58, 7);
-  pages.push(p2);
-
 
   if (mode === "complete") {
     const addSectionPage = (title, rows) => {
@@ -652,6 +690,35 @@ function buildPdfDocument(current, mode = "simple") {
       });
       pages.push(page);
     };
+
+    addSectionPage("Resumen tecnico y marco normativo mexicano", [
+      ["Alcance del documento", "Diagrama unifilar completo generado desde captura. Incluye datos generales, acometida, sistema, tablero, puesta a tierra, seguridad STPS, circuitos derivados y cuadro general de cargas capturado."],
+      ["Resultado de cargas", `VA instalado: ${total(current.circuits, "installedVa")} | VA demandado: ${total(current.circuits, "demandedVa")} | Corriente capturada: ${total(current.circuits, "currentA")} A`],
+      ["Advertencia tecnica", "Los totales son suma simple de los valores capturados; no sustituyen memoria de calculo, dictamen UVIE, estudio de corto circuito, coordinacion de protecciones ni responsiva profesional."],
+      ...mexicanElectricalNorms.map(([name, scope]) => [name, scope]),
+      ["Base capturada por el usuario", current.project.standards]
+    ]);
+
+    const p2 = makePage();
+    p2.push("0.6 w");
+    text(p2, "Circuitos y cuadro general de cargas", 42, 570, 16, "F2");
+    const cols = [34, 108, 58, 105, 48, 54, 54, 48, 44, 165];
+    const headers = ["No", "Circuito", "Interruptor", "Conductores", "Fase", "VA inst", "VA dem", "A", "FP", "Observaciones"];
+    let x = 36; y = 542;
+    headers.forEach((header, i) => { cell(p2, header, x, y, cols[i], 20, 6, "F2"); x += cols[i]; });
+    y -= 20;
+    current.circuits.slice(0, 18).forEach((c, index) => {
+      x = 36;
+      const load = c.loadSchedule || {};
+      [index + 1, c.displayName || c.name, c.breaker, c.conductor, load.phase, load.installedVa, load.demandedVa, load.currentA, load.powerFactor, load.notes]
+        .forEach((value, i) => { cell(p2, value, x, y, cols[i], 24, 5.7); x += cols[i]; });
+      y -= 24;
+    });
+    text(p2, `Total VA instalado: ${total(current.circuits, "installedVa")}`, 42, 78, 8, "F2");
+    text(p2, `Total VA demandado: ${total(current.circuits, "demandedVa")}`, 220, 78, 8, "F2");
+    text(p2, `Total corriente A: ${total(current.circuits, "currentA")}`, 410, 78, 8, "F2");
+    text(p2, "Totales por suma simple de valores capturados.", 42, 58, 7);
+    pages.push(p2);
 
     addSectionPage("Datos completos - proyecto", [
       ["Titulo", current.project.title], ["Proyecto", current.project.projectName], ["Ubicacion", current.project.location],
@@ -729,44 +796,36 @@ function downloadPdf(current, mode = "simple") {
 }
 
 function App() {
-  const [data, setData] = useState(() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || clone(DEFAULT_DATA); } catch { return clone(DEFAULT_DATA); } });
-  const [history, setHistory] = useState([]);
-  const [active, setActive] = useState("project");
-  const [script, setScript] = useState(() => generateScript(data));
-  const [status, setStatus] = useState("Listo");
+  const [state, dispatch] = useReducer(appReducer, null, createInitialState);
+  const { data, history, active, script, status } = state;
   const generatedScript = useMemo(() => generateScript(data), [data]);
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(data)), [data]);
-  useEffect(() => setScript(generatedScript), [generatedScript]);
-  const commitData = updater => {
-    setData(previous => {
-      const next = typeof updater === "function" ? updater(previous) : updater;
-      if (JSON.stringify(previous) === JSON.stringify(next)) return previous;
-      setHistory(items => [...items.slice(-49), clone(previous)]);
-      return next;
-    });
+  const commitData = (updater, status) => dispatch({ type: "data/commit", updater, status });
+  const setScript = value => dispatch({ type: "script/edit", value });
+  const actions = {
+    undo: () => dispatch({ type: "history/undo" }),
+    print: () => { window.print(); dispatch({ type: "status/set", status: "Vista enviada a impresion." }); },
+    pdfSimple: () => { downloadPdf(data, "simple"); dispatch({ type: "status/set", status: "PDF simplificado generado: esquema y datos principales, sin cuadro de cargas." }); },
+    pdfComplete: () => { downloadPdf(data, "complete"); dispatch({ type: "status/set", status: "PDF completo generado: resumen, normas, cuadro de cargas y datos completos." }); },
+    exportScript: () => { downloadText("diagrama.unifilar", generatedScript); dispatch({ type: "status/set", status: "UnifilarScript exportado desde el formulario actual." }); },
+    downloadEditedScript: () => { downloadText("diagrama.unifilar", script); dispatch({ type: "status/set", status: "UnifilarScript descargado desde el editor." }); },
+    restore: () => dispatch({ type: "data/restore" }),
+    clear: () => {
+      if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) dispatch({ type: "data/clear" });
+    },
+    syncScript: () => dispatch({ type: "script/sync", value: generatedScript }),
+    applyScript: () => {
+      try { dispatch({ type: "script/apply", data: parseScript(script) }); }
+      catch (e) { dispatch({ type: "status/set", status: e.message }); }
+    }
   };
-  const undoLastChange = () => {
-    setHistory(items => {
-      if (!items.length) {
-        setStatus("No hay cambios para deshacer.");
-        return items;
-      }
-      const previous = items[items.length - 1];
-      setData(previous);
-      setStatus("Ultimo cambio deshecho.");
-      return items.slice(0, -1);
-    });
-  };
-  const applyScript = () => { try { const parsed = parseScript(script); commitData(parsed); setStatus(`Plano reconstruido: ${parsed.circuits.length} circuito(s).`); } catch (e) { setStatus(e.message); } };
-  const syncScript = () => { setScript(generatedScript); setStatus("Codigo sincronizado desde formulario."); };
-  const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData: commitData }) : active === "loads" ? h(LoadSchedule, { data, setData: commitData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData: commitData });
-  const restoreExample = () => { localStorage.removeItem(STORAGE_KEY); commitData(clone(DEFAULT_DATA)); setStatus("Datos de ejemplo restaurados."); };
+  const mainPanel = active === "circuits" ? h(CircuitsEditor, { data, setData: commitData }) : active === "loads" ? h(LoadSchedule, { data, setData: commitData, editable: true }) : active === "script" ? h(ScriptPanel, { script, setScript, apply: actions.applyScript, sync: actions.syncScript, download: actions.downloadEditedScript }) : h(SectionForm, { title: nav.find(n => n[0] === active)?.[1], group: active, fields: forms[active], data, setData: commitData });
   return h("div", { className: "app-shell" },
-    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: undoLastChange, disabled: !history.length, title: "Deshacer ultimo cambio" }, "Deshacer"), h("button", { onClick: () => window.print() }, "Imprimir"), h("button", { onClick: () => downloadPdf(data, "simple") }, "PDF simplificado"), h("button", { onClick: () => downloadPdf(data, "complete") }, "PDF completo"), h("button", { onClick: () => downloadText("diagrama.unifilar", generatedScript) }, "Exportar script"), h("button", { onClick: restoreExample }, "Restaurar"), h("button", { className: "danger-button", onClick: () => { if (window.confirm("Esto borrara todos los campos y circuitos capturados. ¿Deseas continuar?")) { localStorage.removeItem(STORAGE_KEY); commitData(emptyData()); setStatus("Todos los campos fueron borrados."); } } }, "Borrar todo"))),
-    h(MobileSchematic, { data, generatedScript, undo: undoLastChange, canUndo: !!history.length, restore: restoreExample }),
+    h("header", { className: "topbar" }, h("div", { className: "brand" }, h("span", { className: "brand-icon" }, "DU"), h("div", null, h("strong", null, "Generador de Diagrama Unifilar Dinamico"), h("span", null, "React + UnifilarScript"))), h("div", { className: "top-actions" }, h("button", { onClick: actions.undo, disabled: !history.length, title: "Deshacer ultimo cambio" }, "Deshacer"), h("button", { onClick: actions.print }, "Imprimir"), h("button", { onClick: actions.pdfSimple }, "PDF simplificado"), h("button", { onClick: actions.pdfComplete }, "PDF completo"), h("button", { onClick: actions.exportScript }, "Exportar script"), h("button", { onClick: actions.restore }, "Restaurar"), h("button", { className: "danger-button", onClick: actions.clear }, "Borrar todo"))),
+    h(MobileSchematic, { data, actions, canUndo: !!history.length }),
     h("div", { className: "main-grid desktop-layout" },
-      h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => setActive(id) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
-      h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: applyScript, sync: syncScript, download: () => downloadText("diagrama.unifilar", script) })))
+      h("aside", { className: "sidebar" }, nav.map(([id, label]) => h("button", { key: id, className: active === id ? "active" : "", onClick: () => dispatch({ type: "nav/set", active: id }) }, label)), h("div", { className: "norm-note" }, "Campos de captura para NOM-001-SEDE y seguridad STPS. Validar por responsable electrico.")),
+      h("main", { className: "workarea" }, h("div", { className: "form-column" }, mainPanel), h("section", { className: "preview-column" }, h("div", { className: "preview-head" }, h("h2", null, "Vista del diagrama unifilar"), h("span", null, status)), h("div", { className: "diagram-scroll" }, h(Diagram, { data })), h(LoadSchedule, { data, editable: false }), h(ScriptPanel, { script, setScript, apply: actions.applyScript, sync: actions.syncScript, download: actions.downloadEditedScript })))
     ),
     h("footer", null, "La app no sustituye memoria de calculo, dictamen, UVIE o responsiva profesional. Los valores deben confirmarse en campo.")
   );
