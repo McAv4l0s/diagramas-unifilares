@@ -18,6 +18,7 @@ Este documento acompana la primera implementacion ejecutable del backend.
 - CRUD base de proyectos.
 - Versiones.
 - Registro de solicitudes de exportacion PDF.
+- Generacion real de PDF simplificado y completo desde backend con `Accept: application/pdf`.
 
 ## Levantar arquitectura
 
@@ -142,6 +143,31 @@ curl -X POST "http://localhost:3000/api/projects/$PROJECT_ID/exports/complete-pd
   -H "authorization: Bearer $TOKEN"
 ```
 
+## Descargar PDF real desde backend
+
+PDF simplificado:
+
+```bash
+curl -X POST "http://localhost:3000/api/projects/$PROJECT_ID/exports/simple-pdf" \
+  -H "authorization: Bearer $TOKEN" \
+  -H "accept: application/pdf" \
+  -o diagrama-unifilar-simplificado.pdf
+```
+
+PDF completo:
+
+```bash
+curl -X POST "http://localhost:3000/api/projects/$PROJECT_ID/exports/complete-pdf" \
+  -H "authorization: Bearer $TOKEN" \
+  -H "accept: application/pdf" \
+  -o diagrama-unifilar-completo.pdf
+```
+
+Reglas de salida:
+
+- Simplificado: esquematico y datos principales, sin cuadro de cargas ni resumen normativo extendido.
+- Completo: esquematico, resumen tecnico, cuadro de cargas, datos completos y referencias normativas mexicanas.
+
 ## Flujo operativo despues de DB
 
 1. Levantar `couchdb` y `backend` con Docker Compose.
@@ -151,7 +177,7 @@ curl -X POST "http://localhost:3000/api/projects/$PROJECT_ID/exports/complete-pd
 5. Guardar proyecto con snapshot completo de la PWA.
 6. Crear version por cada cambio importante del unifilar.
 7. Registrar exportacion PDF como evento auditable.
-8. En Fase 2, mover la generacion real del PDF al backend para tener salida consistente.
+8. Solicitar PDF desde backend con `Accept: application/pdf` para salida consistente y trazable.
 
 ## Probar desde la PWA
 
@@ -183,6 +209,17 @@ Flujo recomendado:
 6. Seleccionar proyecto.
 7. Click `Crear version` para guardar un snapshot versionado.
 8. Click `Cargar` para recuperar el snapshot desde CouchDB y reemplazar el formulario actual.
+
+## Descargar PDF desde botones de la PWA
+
+Con token y proyecto seleccionado en la seccion `Backend`, los botones principales usan el backend automaticamente:
+
+- `PDF simplificado`: actualiza el snapshot en CouchDB y descarga `diagrama-unifilar-simplificado.pdf` desde backend.
+- `PDF completo`: actualiza el snapshot en CouchDB y descarga `diagrama-unifilar-completo.pdf` desde backend.
+- `PDF desde script`: reconstruye el snapshot desde UnifilarScript, lo guarda en backend y descarga PDF completo.
+- `Descargar PDF` dentro de `UnifilarScript`: usa el script editado, lo guarda en backend y descarga PDF completo.
+
+Si no hay token o proyecto seleccionado, la PWA conserva la generacion local como respaldo y muestra el estado correspondiente.
 
 Nota:
 
@@ -240,6 +277,7 @@ Esta prueba valida comunicaciones reales contra `http://localhost:3000`:
 3. Lectura de proyecto.
 4. Creacion de version.
 5. Registro de exportacion `complete_pdf`.
+6. Descarga PDF real con encabezado `%PDF-1.4`.
 
 Salida esperada:
 
@@ -249,7 +287,9 @@ Salida esperada:
   "user": "smoke-...",
   "projectId": "project:...",
   "versionId": "version:...",
-  "exportId": "export:..."
+  "exportId": "export:...",
+  "pdfExportId": "export:...",
+  "pdfBytes": 9987
 }
 ```
 
@@ -257,7 +297,7 @@ Salida esperada:
 
 La Fase 2 debe implementar:
 
-- Generacion real de PDF en backend.
 - PouchDB local.
 - Sync offline-first.
 - UI para login/proyectos.
+- Endurecer permisos/autorizacion por rol antes de produccion.
